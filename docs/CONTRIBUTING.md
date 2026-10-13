@@ -6,7 +6,7 @@ Gracias por querer contribuir a este proyecto. Para mantener el código limpio y
 
 | Tema            | Regla                                                                |
 | --------------- | -------------------------------------------------------------------- |
-| Branches        | `<type>/<issue-id>-descripcion-corta`, ej. `feat/42-agregar-login`   |
+| Branches        | `<type>/<descripcion>` o `<type>/<scope>/<descripcion>`, ej. `feat/agregar-login` |
 | Issues y PRs    | `type(scope): descripcion corta`                                     |
 | PRs             | Deben cerrar un issue aprobado con `Closes #ID` antes de mergear     |
 | Commits         | Conventional Commits, ej. `feat(auth): agregar login con Supabase`   |
@@ -19,15 +19,18 @@ No se permite hacer push directamente a `main`. Todas las contribuciones deben r
 
 ### Formato de nombres de rama
 
-Usá `<type>/<issue-id>-descripcion-corta`.
+Usá `<type>/<descripcion>`, o `<type>/<scope>/<descripcion>` cuando convenga acotar el alcance.
+
+El número de issue **no** va en el nombre de la rama. El vínculo con el issue se establece con `Closes #ID` en el cuerpo del commit o del PR.
 
 Ejemplos:
 
-- `feat/42-agregar-login`
-- `fix/57-corregir-validacion-fechas`
-- `docs/61-actualizar-readme`
-- `refactor/73-extraer-servicio-auth`
-- `chore/88-ajustar-tooling`
+- `feat/agregar-login`
+- `fix/corregir-validacion-fechas`
+- `docs/actualizar-readme`
+- `refactor/extraer-servicio-auth`
+- `chore/ajustar-tooling`
+- `feature/frontend/landing-page`
 
 ## Flujo de Trabajo (Workflow)
 
@@ -43,7 +46,7 @@ git pull origin main
 ### 2. Crear una rama
 
 ```bash
-git checkout -b feat/42-agregar-login
+git checkout -b feat/agregar-login
 ```
 
 ### 3. Desarrollar
