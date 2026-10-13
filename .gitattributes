@@ -1,0 +1,39 @@
+# ============================================================
+# Finales de línea — LF en el repo sin importar el SO.
+# Sin esto, Windows (core.autocrlf) genera diffs fantasma en los PRs.
+# ============================================================
+* text=auto eol=lf
+
+# ------------------------------------------------------------
+# Binarios — nunca convertir
+# ------------------------------------------------------------
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.webp   binary
+*.svg    binary
+*.pdf    binary
+*.zip    binary
+*.gz     binary
+*.tar    binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.eot    binary
+*.otf    binary
+*.mp4    binary
+*.webm   binary
+
+# ------------------------------------------------------------
+# Scripts de Windows — DEBEN conservar CRLF o no se ejecutan
+# ------------------------------------------------------------
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# ------------------------------------------------------------
+# Diff y merge
+# ------------------------------------------------------------
+*.{json,md,yml,yaml}  text diff=markdown
