@@ -15,6 +15,18 @@ fueron bloqueadas por el lado del servidor.
 
 Resultado medido: **100 reseñas únicas en 6.5 s, 0 duplicados, $0.**
 
+## Uso
+
+El contrato de arriba está implementado en `scripts/obtener_resenas.py`, que
+solo usa la biblioteca estándar de Python:
+
+```bash
+python scripts/obtener_resenas.py "Clínica Cotocollao Quito"
+python scripts/obtener_resenas.py "Bocanáriz Santiago" --sort 4
+python scripts/obtener_resenas.py "robstudiofit Talcahuano" --json
+python scripts/obtener_resenas.py --smoke-test
+```
+
 ---
 
 ## Por qué no la API oficial de Places
@@ -228,11 +240,23 @@ solo descuenta las búsquedas exitosas.
 
 ## Cómo verificar que sigue funcionando
 
-Antes de confiar en el endpoint en cualquier momento futuro:
+```bash
+python scripts/obtener_resenas.py --smoke-test
+```
 
-1. Ejecutar el paso 1 con un negocio conocido → debe devolver al menos un CID
-2. Ejecutar el paso 2 con `sort=2` → debe devolver reseñas sin `)]}'` fallido
-3. Comparar la cantidad de reseñas contra la que muestra Google Maps
+El chequeo corre contra un negocio conocido y valida los tres pasos:
 
-Si el paso 2 devuelve HTTP 400, el payload cambió. Si devuelve 200 con lista
-vacía, el endpoint fue retirado.
+1. El paso 1 debe devolver al menos un CID
+2. El paso 2 debe devolver reseñas
+3. La cantidad debe coincidir con la que muestra Google Maps
+
+### Señales de fallo
+
+| Salida | Significado |
+| --- | --- |
+| HTTP 400 | el formato del payload cambió — revisar el `reqpld` |
+| HTTP 200 con lista vacía | el endpoint fue retirado |
+| Estructura inesperada | la respuesta cambió de forma |
+
+El script distingue los tres casos y los reporta con un mensaje accionable,
+en lugar de fallar en silencio con un `IndexError`.
