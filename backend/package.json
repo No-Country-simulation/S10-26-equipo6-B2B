@@ -2,5 +2,8 @@
   "name": "backend",
   "private": true,
   "version": "0.0.0",
-  "description": "Backend de RepuSense — shim de tareas para que Turbo orqueste el workspace"
+  "description": "Backend de RepuSense — shim de tareas para que Turbo orqueste el workspace",
+  "scripts": {
+    "dev": "uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000"
+  }
 }
