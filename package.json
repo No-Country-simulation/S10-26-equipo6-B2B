@@ -1,0 +1,13 @@
+{
+  "name": "repusense",
+  "private": true,
+  "packageManager": "pnpm@12.3.4",
+  "scripts": {
+    "dev:frontend": "turbo dev --filter=frontend",
+    "build": "turbo build",
+    "lint": "turbo lint"
+  },
+  "devDependencies": {
+    "turbo": "^2.6.3"
+  }
+}
