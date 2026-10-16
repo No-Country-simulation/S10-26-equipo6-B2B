@@ -4,6 +4,8 @@
   "packageManager": "pnpm@12.3.4",
   "scripts": {
     "dev:frontend": "turbo dev --filter=frontend",
+    "dev:backend": "turbo dev --filter=backend",
+    "dev:local": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint"
   },
