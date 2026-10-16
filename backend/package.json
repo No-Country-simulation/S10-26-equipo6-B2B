@@ -1,0 +1,6 @@
+{
+  "name": "backend",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Backend de RepuSense — shim de tareas para que Turbo orqueste el workspace"
+}
