@@ -119,7 +119,7 @@ Diferenciador    genera automáticamente el asunto + primer párrafo
 | | Artefacto | Dónde |
 |---|---|---|
 | ✅ | **Fuente de reseñas verificada** — contrato del endpoint anónimo, sin login ni cookies. Se probaron **9 combinaciones de scraping** que fueron bloqueadas (Maps y Search en headless, stealth, headed, y HTTP plano); las reseñas de la API oficial de Places quedan en `[]` o limitadas a 5 por relevancia, insuficiente para las 5 negativas más recientes que pide el brief. | [`docs/fuente-de-resenas.md`](docs/fuente-de-resenas.md) |
-| ✅ | **Script de referencia** — obtiene reseñas de un negocio, con deduplicación por ID, rate limiting ~1 req/s, paginación y tres señales de fallo. | [`scripts/obtener_resenas.py`](scripts/obtener_resenas.py) |
+| ✅ | **Módulo ETL de reseñas** — obtiene reseñas de un negocio, con deduplicación por ID, rate limiting ~1 req/s, paginación, umbral de negativas `rating <= 3` y tres señales de fallo. | [`backend/app/etl/resenas.py`](backend/app/etl/resenas.py) |
 | ✅ | **Infraestructura de contribución** — plantillas de issue y PR, guía de contribución. | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) · [`.github/`](.github/) |
 
 ### Pendiente
@@ -141,11 +141,11 @@ Diferenciador    genera automáticamente el asunto + primer párrafo
 ├── .github/
 │   ├── ISSUE_TEMPLATE/       Plantillas de bug y feature
 │   └── pull_request_template.md
-├── docs/
-│   ├── CONTRIBUTING.md       Guía de contribución y flujo de revisión
-│   └── fuente-de-resenas.md  Contrato del endpoint y evidencia de verificación
-└── scripts/
-    └── obtener_resenas.py    Script de referencia para obtener reseñas
+├── backend/
+│   └── app/                  API FastAPI, capa ETL y proveedores externos
+└── docs/
+    ├── CONTRIBUTING.md       Guía de contribución y flujo de revisión
+    └── fuente-de-resenas.md  Contrato del endpoint y evidencia de verificación
 ```
 
 ---

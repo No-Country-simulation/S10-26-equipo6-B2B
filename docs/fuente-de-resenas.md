@@ -11,20 +11,21 @@ fueron bloqueadas por el lado del servidor.
 
 1. `search?tbm=map` con el nombre del negocio → devuelve el **CID**
 2. `GetLocalBoqProxy` con el CID y `sort=2` → devuelve las **reseñas en JSON**
-3. Filtrar `rating <= 2` con texto → quedar con las **5 más recientes**
+3. Filtrar `rating <= 3` con texto → quedar con las **5 más recientes**
 
 Resultado medido: **100 reseñas únicas en 6.5 s, 0 duplicados, $0.**
 
 ## Uso
 
-El contrato de arriba está implementado en `scripts/obtener_resenas.py`, que
-solo usa la biblioteca estándar de Python:
+El contrato de arriba está implementado en `backend/app/etl/resenas.py`, que
+solo usa la biblioteca estándar de Python. Corre desde `backend/` como módulo:
 
 ```bash
-python scripts/obtener_resenas.py "Clínica Cotocollao Quito"
-python scripts/obtener_resenas.py "Bocanáriz Santiago" --sort 4
-python scripts/obtener_resenas.py "robstudiofit Talcahuano" --json
-python scripts/obtener_resenas.py --smoke-test
+cd backend
+python -m app.etl.resenas "Clínica Cotocollao Quito"
+python -m app.etl.resenas "Bocanáriz Santiago" --sort 4
+python -m app.etl.resenas "robstudiofit Talcahuano" --json
+python -m app.etl.resenas --smoke-test
 ```
 
 ---
@@ -232,16 +233,15 @@ solo descuenta las búsquedas exitosas.
 
 ## Fuera de alcance
 
-- **La implementación en el backend.** Depende de la decisión de stack, que
-  sigue pendiente. El script funciona con la biblioteca estándar de Python y
-  no tiene dependencias de framework, cola ni base de datos.
+- **La persistencia de las reseñas.** El módulo devuelve las reseñas en
+  memoria; cómo se guardan en la tabla `review` depende del esquema de tablas.
 - **La estructura del pipeline de ingesta.** Se documentará junto con el
   esquema de tablas.
 
 ## Cómo verificar que sigue funcionando
 
 ```bash
-python scripts/obtener_resenas.py --smoke-test
+cd backend && python -m app.etl.resenas --smoke-test
 ```
 
 El chequeo corre contra un negocio conocido y valida los tres pasos:
