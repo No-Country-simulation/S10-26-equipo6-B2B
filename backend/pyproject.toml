@@ -30,6 +30,13 @@ src = ["app"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 
+[tool.ruff.lint.per-file-ignores]
+# Módulo incorporado tal cual desde scripts/ (#36: "No reescribir lo que
+# funciona"). UP031 es el formateo porcentaje heredado, E501 una línea larga
+# preexistente y RUF100 un noqa que la regla BLE no tiene seleccionada.
+# La migración de estilo va en un PR aparte, no en el de la mudanza.
+"app/etl/resenas.py" = ["UP031", "E501", "RUF100"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
 
