@@ -10,11 +10,11 @@ endpoint que consume el propio frontend de Google Maps:
 Solo usa la biblioteca estandar de Python: sin dependencias externas, sin
 navegador, sin cookies y sin API key.
 
-Uso:
-    python scripts/obtener_resenas.py "Clínica Cotocollao Quito"
-    python scripts/obtener_resenas.py "Bocanáriz Santiago" --sort 4
-    python scripts/obtener_resenas.py "robstudiofit Talcahuano" --json
-    python scripts/obtener_resenas.py --smoke-test
+Uso (desde ``backend/``):
+    python -m app.etl.resenas "Clínica Cotocollao Quito"
+    python -m app.etl.resenas "Bocanáriz Santiago" --sort 4
+    python -m app.etl.resenas "robstudiofit Talcahuano" --json
+    python -m app.etl.resenas --smoke-test
 
 Advertencia:
     El endpoint es interno y no tiene garantia de estabilidad: Google retiro
@@ -32,9 +32,6 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-
-# Las consolas de Windows usan cp1252 por defecto y arruinan los acentos.
-sys.stdout.reconfigure(encoding="utf-8")
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -256,13 +253,25 @@ def resumen_distribucion(reseñas):
 def extraer_negativas(reseñas, cantidad):
     """Las N reseñas negativas más recientes que tengan texto.
 
-    Las reseñas sin cuerpo se descartan para que no consuman una de las plazas.
+    Una reseña es negativa cuando su ``rating <= 3`` y su ``content`` no está
+    vacío (RF2 de ``docs/systemDesign.md``). Las reseñas sin cuerpo se
+    descartan para que no consuman una de las plazas.
     """
     return [
         reseña
         for reseña in reseñas
-        if reseña["estrellas"] is not None and reseña["estrellas"] <= 2 and reseña["texto"]
+        if reseña["estrellas"] is not None and reseña["estrellas"] <= 3 and reseña["texto"]
     ][:cantidad]
+
+
+def obtener_negativas(consulta, cantidad=5):
+    """Las ``cantidad`` reseñas negativas más recientes de un negocio.
+
+    Función pública de la capa ETL: ejecuta la recolección completa y aplica
+    el filtro de RF2. Lanza ``ErrorRecoleccion`` cuando la fuente no responde.
+    """
+    reseñas, _cid = obtener_resenas(consulta)
+    return extraer_negativas(reseñas, cantidad)
 
 
 def correr_smoke_test():
@@ -307,6 +316,10 @@ def correr_smoke_test():
 
 
 def main():
+    # Las consolas de Windows usan cp1252 por defecto y arruinan los acentos.
+    # Se configura al ejecutar el CLI, nunca al importar el paquete.
+    sys.stdout.reconfigure(encoding="utf-8")
+
     parser = argparse.ArgumentParser(
         description="Recolecta reseñas de Google Maps sin navegador.",
         epilog="Contrato documentado en docs/fuente-de-resenas.md",
@@ -408,7 +421,7 @@ def main():
         print("     %s" % texto)
 
     print()
-    print("=== %d RESEÑAS NEGATIVAS MÁS RECIENTES (<=2 estrellas, con texto) ===" % args.negativas)
+    print("=== %d RESEÑAS NEGATIVAS MÁS RECIENTES (<= 3 estrellas, con texto) ===" % args.negativas)
     if not negativas:
         print("  (ninguna — el negocio no tiene)")
     for indice, reseña in enumerate(negativas, 1):

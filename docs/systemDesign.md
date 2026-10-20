@@ -301,7 +301,7 @@ El modelo define 9 tablas organizadas con claves primarias (uuid / smallint), cl
           │  3. Consume tarea                     │     review, contact,
           ▼                                       │     ai_analysis)
  [ Worker: ETL / Scraper ] ───────────────────────┤
- (backend/app/etl · httpx)                        │
+ (backend/app/etl · urllib)                       │
           │                                       │
           │  4. Envía reseñas                     │
           ▼                                       │
@@ -362,7 +362,7 @@ Pipeline por negocio:
 4. Selección de las **5 reseñas negativas más recientes** (`rating <= 3` y `content` no vacío).
 5. `UPSERT` en `business_source` e inserción de las reseñas en `review`.
 
-La referencia de implementación es `scripts/obtener_resenas.py`.
+La referencia de implementación es `backend/app/etl/resenas.py`.
 
 ### 2. Resiliencia ante bloqueo
 
