@@ -1,6 +1,8 @@
 # RepuSense — Diseño de Sistema (Framework de 6 Pasos)
 
-Diseño del sistema RepuSense estructurado según el framework de 6 pasos de diseño de sistemas. El modelo de datos definitivo corresponde al ERD del equipo (fuente: `Captura_de_pantalla_de_2026-10-15_18-04-42.png`).
+Diseño del sistema RepuSense estructurado según el framework de 6 pasos de diseño de sistemas.
+
+El modelo de datos definitivo corresponde al ERD del equipo de 9 tablas (sección 3.3, origen: `Captura_de_pantalla_de_2026-10-15_18-04-42.png`).
 
 Índice:
 1. Aclarar Requisitos y Alcance
@@ -19,7 +21,7 @@ El brief del proyecto cubre ~80-90% de la información de negocio. Este paso la 
 ### 1. Requisitos Funcionales (lo que el sistema DEBE hacer)
 
 - **RF1. Parámetros de búsqueda dinámicos:** permitir al usuario iniciar una prospección especificando Ciudad, Rubro (ej. "clínicas dentales") y filtros (calificación < 3.5 estrellas y > 10 reseñas).
-- **RF2. Extracción automática (scraping):** recopilar nombre del negocio, rating, total de reseñas, teléfono, sitio web y el texto de las últimas 5 reseñas negativas.
+- **RF2. Extracción automática (scraping):** recopilar nombre del negocio, rating, total de reseñas, teléfono, sitio web y el texto de las **5 reseñas negativas más recientes**. Una reseña se considera negativa cuando `rating <= 3` y su `content` no está vacío.
 - **RF3. Enriquecimiento secundario de contactos:** navegar el sitio web del negocio para rastrear un correo electrónico de contacto o enlace relevante.
 - **RF4. Análisis e inteligencia con IA (LLM):** enviar las reseñas al modelo de IA para clasificar la causa principal del descontento (atención, precios, higiene, demoras) y redactar un borrador de correo personalizado (asunto + primer párrafo).
 - **RF5. Dashboard de gestión:** ofrecer una interfaz tipo tabla con filtros por calificación y problema, visualización de contactos, copia de borradores y exportación a CSV.
@@ -36,8 +38,9 @@ Para evitar la sobreingeniería y asegurar el cumplimiento de la entrega del pro
 
 - **RNF1. Escala y almacenamiento inicial:** la base de datos debe ser capaz de procesar y almacenar al menos 200 a 500 leads reales para las pruebas del MVP.
 - **RNF2. Arquitectura asíncrona y latencia:** el dashboard debe responder consultas de lectura en menos de 200 ms, mientras que las tareas pesadas de extracción e IA se ejecutan en segundo plano mediante colas de trabajo.
-- **RNF3. Deduplicación e idempotencia:** identificar comercios mediante una clave única (place_id o URL de origen) para actualizar datos existentes en lugar de duplicar registros al repetir búsquedas.
-- **RNF4. Resiliencia anti-bot económica:** diseñar estrategias de scraping (User-Agents rotativos, retardos aleatorios) para evitar bloqueos tempranos sin depender de proxies premium.
+- **RNF3. Deduplicación e idempotencia:** identificar cada ficha por la pareja `(platform_id, external_id)` con una restricción `UNIQUE`, de modo que una nueva ejecución de scraping **actualice** la ficha existente en lugar de duplicarla.
+- **RNF4. Resiliencia ante bloqueo:** si la fuente responde `429` o `403`, el worker debe reprogramar la tarea con backoff exponencial y jitter sin detener su loop de consumo.
+- **RNF5. Asignación comercial:** el sistema sostiene **3 vendedores**. Cada lead debe poder asignarse a uno de ellos (`business.assigned_to`) y registrar cuándo se contactó (`contacted_at`), sin reiniciar el ciclo de ventas de leads ya abordados.
 
 ## Paso 2 — Estimaciones Rápidas (Back-of-the-Envelope)
 
@@ -45,10 +48,17 @@ Objetivo: traducir los requisitos del MVP a números concretos (tráfico, petici
 
 ### 1. Volumen de trabajo y QPS
 
-- Uso estimado del MVP: 10 búsquedas/prospecciones por día ejecutadas por el equipo comercial.
-- Leads procesados por búsqueda: 50 negocios escaneados para filtrar los ~20 con peor calificación.
-- Negocios procesados al día: 10 búsquedas × 50 negocios = 500 negocios/día.
-- QPS síncrono (lecturas en el dashboard): un puñado de usuarios consultando la interfaz genera < 1 QPS.
+**Objetivo del MVP (RNF1):** poblar **200 a 500 leads reales** para la Demo Day, sostenidos por **3 vendedores**. Ese es el número que define el proyecto.
+
+**Techo de capacidad:** para dimensionar infraestructura se estima el escenario completo, no el objetivo:
+
+- Uso sostenido: 10 búsquedas/prospecciones por día ejecutadas por el equipo comercial.
+- Leads procesados por búsqueda: 50 negocios escaneados para filtrar los ~20 que cumplen `< 3.5` estrellas y `> 10` reseñas.
+- Negocios procesados al día: 10 × 50 = 500 negocios/día.
+- QPS síncrono (lecturas en el dashboard): 3 usuarios consultando la interfaz generan < 1 QPS.
+
+> Los 500 negocios/día representan el **techo de capacidad**. El objetivo del MVP se fija en RNF1: **200–500 leads reales**.
+
 - **Conclusión de carga:** el sistema no es de alto tráfico síncrono, sino intensivo en procesamiento por lotes en segundo plano (batch / async heavy).
 
 ### 2. Estimación de scraping y peticiones HTTP
@@ -89,7 +99,7 @@ Proyección de almacenamiento:
 
 - 1.000 leads guardados en el MVP: 1.000 × 5 KB = 5 MB.
 - 100.000 leads acumulados en un año: 100.000 × 5 KB = 500 MB ≈ 0,5 GB.
-- **Conclusión de infraestructura:** cualquier base de datos PostgreSQL estándar (incluso en capa gratuita de proveedores cloud como Render, Supabase o Neon) manejará este volumen durante años sin problemas de espacio o índices.
+- **Conclusión de infraestructura:** cualquier PostgreSQL estándar maneja este volumen durante años sin problemas de espacio o índices. El sistema corre **PostgreSQL 16 en Docker local** (`docker-compose.yml`).
 
 **Conclusión del paso:** no se necesita un clúster masivo ni almacenamiento distribuido especial, sino un pipeline asíncrono simple y robusto.
 
@@ -276,22 +286,22 @@ El modelo define 9 tablas organizadas con claves primarias (uuid / smallint), cl
 
 ```
 [ Cliente / Frontend ]
-   (React / Next.js)
+   (React / Vite)
           │
           │  1. POST /api/v1/busquedas
           ▼
  [ API Backend / Gateway ] ◄──────────► [ Base de Datos Relacional ]
-   (FastAPI / Node.js)                   (PostgreSQL - 9 Tablas)
+  (FastAPI · Python)               (PostgreSQL 16 · Docker)
           │                                       ▲
           │  2. Encola trabajo                    │
           ▼                                       │ 5. Guarda resultados
   [ Cola de Tareas ]                              │    en schema relacional
- (Redis + Celery/BullMQ)                          │    (search, business,
+ (Redis + arq o Celery)                           │    (search, business,
           │                                       │     business_source,
           │  3. Consume tarea                     │     review, contact,
           ▼                                       │     ai_analysis)
- [ Worker: Scraper Engine ] ──────────────────────┤
- (Puppeteer / Playwright)                         │
+ [ Worker: ETL / Scraper ] ───────────────────────┤
+ (backend/app/etl · httpx)                        │
           │                                       │
           │  4. Envía reseñas                     │
           ▼                                       │
@@ -313,7 +323,7 @@ El modelo define 9 tablas organizadas con claves primarias (uuid / smallint), cl
 
 **Capa de extracción (scraper engine & enriquecimiento):**
 
-- Ejecuta la navegación headless en plataformas de mapas/reseñas (Google Maps, TripAdvisor) según las plataformas registradas en la tabla platform.
+- Ejecuta las peticiones HTTP a las plataformas de mapas/reseñas (Google Maps, TripAdvisor) según las plataformas registradas en la tabla platform.
 - Inserta o actualiza la entidad del comercio en business y su ficha específica en business_source (guardando rating, total_reviews y last_scraped_at).
 - Vincula la búsqueda con el negocio en la tabla intermedia search_business.
 - Almacena las reseñas negativas asociadas a la ficha en review y registra múltiples canales de contacto detectados (emails, teléfonos) en contact.
@@ -338,22 +348,36 @@ El modelo define 9 tablas organizadas con claves primarias (uuid / smallint), cl
 
 ## Paso 5 — Profundización (Deep Dives)
 
-Los tres componentes técnicamente más exigentes y críticos para garantizar que el sistema funcione sin fallos ni bloqueos en producción.
+Los cuatro componentes técnicamente más exigentes y críticos para garantizar que el sistema funcione sin fallos ni bloqueos en producción.
 
-### 1. Estrategia anti-bot y navegación resiliente (scraper engine)
+### 1. Extracción de datos (fuente y pipeline)
 
-Para evitar que las plataformas de mapas y reseñas bloqueen las direcciones IP o detecten la automatización sin recurrir a proxies premium costosos:
+Las pruebas de navegación automatizada fueron bloqueadas server-side en todas las combinaciones probadas. La extracción se implementa a nivel HTTP: dos peticiones por negocio, sin navegador, sin login y sin clave de API.
 
-- **Evasión de huella digital (stealth browser):** uso de Puppeteer Stealth o Playwright enmascarando las propiedades típicas de automatización (ocultando navigator.webdriver, simulando WebGL y encabezados navigator.plugins).
-- **Rotación dinámica de User-Agents y headers:** variación sistemática del encabezado User-Agent utilizando firmas actualizadas de navegadores reales (Chrome, Firefox, Safari) en Windows y macOS.
-- **Simulación de comportamiento humano:**
-  - Delays o pausas aleatorias entre peticiones (entre 1,5 y 4,5 segundos).
-  - Desplazamiento (scroll) progresivo para activar la carga perezosa (lazy loading) de reseñas.
-- **Manejo de respuestas de bloqueo:**
-  - Detección automática de códigos 429 Too Many Requests o 403 Forbidden.
-  - Captura de la excepción sin detener el servidor y reprogramación de la tarea en la cola de Redis aplicando tiempo de espera exponencial (exponential backoff).
+Pipeline por negocio:
 
-### 2. Pipeline de enriquecimiento en cascada para datos de contacto
+1. Petición al listado de resultados para obtener el identificador del negocio (`CID`).
+2. Petición al endpoint de reseñas con ese identificador.
+3. Filtrado: se descartan los negocios con `rating >= 3.5` o `total_reviews <= 10`.
+4. Selección de las **5 reseñas negativas más recientes** (`rating <= 3` y `content` no vacío).
+5. `UPSERT` en `business_source` e inserción de las reseñas en `review`.
+
+La referencia de implementación es `scripts/obtener_resenas.py`.
+
+### 2. Resiliencia ante bloqueo
+
+El worker se diseña para seguir operando cuando la fuente responde con error.
+
+- **Procesamiento serial:** un worker, un negocio a la vez. La paralelización desde una sola dirección IP multiplica la tasa de peticiones sin beneficio.
+- **Retardo entre negocios:** pausa aleatoria de 1,5 a 4,5 segundos entre ejecuciones.
+- **Timeout:** 10 segundos por negocio. Si la fuente no responde, se omite el negocio y se continúa con el siguiente.
+- **Backoff exponencial con jitter:** ante `429 Too Many Requests` o `403 Forbidden`, la tarea se reprograma con espera creciente y variación aleatoria.
+- **Circuit breaker:** si la tasa de respuestas bloqueadas supera un umbral, se pausa la cola de extracción durante un intervalo fijo.
+- **Estado persistido:** al agotar los reintentos, `search.status = FAILED` con `error_message = RATE_LIMITED_429`. Los datos ya extraídos en `review` y `contact` se conservan.
+
+Presupuesto de tasa: 500 negocios/día × 2 peticiones = 1.000 peticiones diarias, a 10 segundos por negocio, equivalentes a 1,4 horas de worker al día.
+
+### 3. Pipeline de enriquecimiento en cascada para datos de contacto
 
 Las plataformas de reseñas no suelen mostrar el correo directo de las empresas, por lo que se implementa un flujo en cascada:
 
@@ -375,7 +399,7 @@ Las plataformas de reseñas no suelen mostrar el correo directo de las empresas,
 - **Paso B:** se ejecuta un scraping secundario sobre el sitio web oficial explorando las rutas /contacto, /nosotros y el pie de página (footer).
 - **Paso C:** filtrado de correos mediante expresiones regulares (regex) y registro del resultado en la tabla contact, vinculándolo a la entidad business.
 
-### 3. Inferencia estructurada con el LLM (JSON Mode)
+### 4. Inferencia estructurada con el LLM (JSON Mode)
 
 Para evitar errores de sintaxis al guardar las respuestas de la IA en la base de datos, se fuerza al modelo de lenguaje (API de OpenAI o modelo local vía Ollama) a responder con garantía de formato JSON estricto.
 
@@ -417,13 +441,13 @@ Identificación de las posibles fallas bajo carga y definición de los mecanismo
 ### 2. Estrategia de escalado futuro (scale out)
 
 - **Escalado horizontal de workers:** dado que los workers son stateless, es posible aumentar el número de contenedores de scraping en función de la longitud de la cola de Redis.
-- **Réplicas de lectura en PostgreSQL:** para asegurar que las lecturas del dashboard comercial (GET /api/v1/leads) sean instantáneas (< 200 ms), se pueden derivar las consultas de lectura a réplicas de lectura de PostgreSQL, manteniendo la base de datos primaria dedicada exclusivamente a las escrituras de los workers.
+- **Consultas de lectura:** las lecturas del dashboard (`GET /api/v1/leads`) se resuelven sobre un índice compuesto `(busqueda_id, rating)`. Con 200–500 leads, el objetivo de < 200 ms se alcanza sin infraestructura adicional.
 
 ## Resumen ejecutivo del diseño
 
 RepuSense es un pipeline asíncrono y resiliente de prospección comercial:
 
 1. **Entrada:** la API (POST /api/v1/busquedas) registra la solicitud en la tabla search y delega la tarea pesada a Redis.
-2. **Procesamiento:** un worker de Puppeteer/Playwright extrae los comercios, evita duplicados mediante business_source.external_id, captura las reseñas negativas en review y busca correos electrónicos en la web del negocio para almacenarlos en contact.
+2. **Procesamiento:** el worker ETL (`backend/app/etl`) extrae los comercios por HTTP, evita duplicados mediante business_source.external_id, captura las reseñas negativas en review y busca correos electrónicos en la web del negocio para almacenarlos en contact.
 3. **Inteligencia:** un LLM en modo JSON estricto clasifica la causa del descontento en problem_category y genera el borrador del correo en ai_analysis.
 4. **Resiliencia:** manejo de fallos con Circuit Breakers, colas desacopladas en Redis y actualización transparente de estados para el usuario en el dashboard comercial.
