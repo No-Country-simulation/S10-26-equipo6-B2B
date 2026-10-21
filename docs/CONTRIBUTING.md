@@ -9,7 +9,7 @@ Gracias por querer contribuir a este proyecto. Para mantener el código limpio y
 | Branches        | `<type>/<descripcion>` o `<type>/<scope>/<descripcion>`, ej. `feat/agregar-login` |
 | Issues y PRs    | `type(scope): descripcion corta`                                     |
 | PRs             | Deben cerrar un issue aprobado con `Closes #ID` antes de mergear     |
-| Commits         | Conventional Commits, ej. `feat(auth): agregar login con Supabase`   |
+| Commits         | Conventional Commits, ej. `feat(auth): agregar login con correo`     |
 | Labels de issue | Un `type:*`, un `status:*`, un `priority:*` y opcionalmente `area:*` |
 | Paquetes        | Usar `pnpm`; no usar `npm`, `npx` ni `yarn`                          |
 
@@ -139,25 +139,32 @@ Cada Pull Request debe usar la plantilla del repositorio e incluir:
 
 ## Validación local
 
-Ejecutá desde la raíz cuando aplique:
+Ejecutá desde la raíz:
 
 ```bash
-pnpm check
 pnpm lint
-pnpm test
 pnpm build
+```
+
+El backend en Python tiene sus propios controles, desde `backend/`:
+
+```bash
+uv run --group dev ruff check app
+uv run --group dev pytest
 ```
 
 ## Base de datos local
 
-Usá Supabase CLI desde la raíz para migraciones PostgreSQL:
+El proyecto **no usa Supabase**. La infraestructura corre en Docker y está definida en `docker-compose.yml`:
 
 ```bash
-pnpm db:migration:new <nombre>
-pnpm db:migrate:status
-pnpm db:migrate
-pnpm db:pull
-pnpm db:reset
+docker compose up -d      levantar Postgres 16 y Redis
+docker compose ps         estado
+docker compose logs -f    logs
+docker compose down       parar
+docker compose down -v    parar y borrar los datos
 ```
 
-Para operar contra Supabase remoto, autenticá y vinculá el proyecto localmente. No commitees tokens, `.env` ni `project_ref`.
+Postgres queda en `localhost:5432` con usuario, contraseña y base `repusense`. El backend se conecta con la URL que define `backend/app/core/config.py`.
+
+Las migraciones todavía no están definidas: `backend/migrations/` está vacío y no hay herramienta de migración configurada todavía. El modelo de datos validado vive en `docs/systemDesign.md`, sección 3, y su implementación queda trazada en el issue #38.
