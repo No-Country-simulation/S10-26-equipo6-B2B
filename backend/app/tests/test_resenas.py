@@ -5,6 +5,8 @@ Fija el umbral documentado en ``docs/fuente-de-resenas.md`` y en RF2 del
 su ``content`` no está vacío. Usa reseñas fabricadas, sin red.
 """
 
+from datetime import UTC
+
 from app.etl import resenas
 from app.etl.resenas import extraer_negativas
 
@@ -109,3 +111,49 @@ def test_obtener_negativas_respeta_cantidad(monkeypatch):
 
     monkeypatch.setattr(resenas, "obtener_resenas", _falso)
     assert len(resenas.obtener_negativas("negocio fabricado", cantidad=2)) == 2
+
+
+def test_max_estrellas_es_inyectable():
+    """El umbral no está hardcodeado: se cambia por parámetro, sin tocar el entorno."""
+    reseñas = [_resena(4, "buena"), _resena(3, "aceptable")]
+    salida = extraer_negativas(reseñas, 5, max_estrellas=4)
+    assert [r["texto"] for r in salida] == ["buena", "aceptable"]
+
+
+def test_max_estrellas_por_defecto_sigue_siendo_tres():
+    """RF2: sin umbral explícito el corte sigue en ``<= 3``."""
+    assert [r["texto"] for r in extraer_negativas([_resena(4, "buena")], 5)] == []
+
+
+def test_obtener_negativas_lee_el_umbral_de_settings(monkeypatch):
+    """``settings.etl_negative_rating_max`` es el que manda, no un literal."""
+    fabricadas = [_resena(4, "buena", "a")]
+
+    def _falso(consulta, orden=2, tamano_pagina=20, max_paginas=6, max_resenas=100):
+        return fabricadas, "0x000001:0x000002"
+
+    monkeypatch.setattr(resenas, "obtener_resenas", _falso)
+    monkeypatch.setattr("app.core.config.settings.etl_negative_rating_max", 4)
+
+    assert [r["texto"] for r in resenas.obtener_negativas("negocio fabricado")] == ["buena"]
+
+
+def test_obtener_resenas_sella_scraped_at_una_vez_por_lote(monkeypatch):
+    """ERD ``systemDesign.md:270``: ``review.scraped_at`` cronometra la recolección."""
+    cruda = [None] * 28
+    cruda[1] = 1
+    cruda[2] = ["Hace 1 mes", None, "1789481075334"]
+    cruda[3] = ["ana"]
+    cruda[5] = "id-1"
+    cruda[27] = "mala"
+
+    monkeypatch.setattr(resenas, "obtener_cids", lambda q: ["0x000001:0x000002"])
+    monkeypatch.setattr(
+        resenas, "obtener_pagina", lambda cid, orden, tamano, token=None: ([cruda], None)
+    )
+
+    salida, cid = resenas.obtener_resenas("negocio fabricado")
+
+    assert cid == "0x000001:0x000002"
+    assert salida[0]["scraped_at"] is not None
+    assert salida[0]["scraped_at"].tzinfo is UTC

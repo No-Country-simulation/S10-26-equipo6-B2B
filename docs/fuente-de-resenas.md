@@ -166,9 +166,19 @@ Ambas respuestas vienen con el prefijo anti-XSSI `)]}'` antes del JSON.
 | --- | --- |
 | `[1]` | estrellas |
 | `[2][0]` | fecha legible, p. ej. `"una semana atrás"` |
+| `[2][2]` | epoch en milisegundos serializado como string, p. ej. `"1792425050478"` — la fecha exacta |
 | `[3][0]` | nombre del autor |
 | `[5]` | review ID — sirve para deduplicar entre páginas |
 | `[27]` / `[28]` / `[11]` | texto, en ese orden de preferencia |
+
+La posición `[2]` es una lista de tres elementos. `[2][2]` es la única fuente de
+fecha exacta que entrega el endpoint: `[2][0]` es texto relativo y no se puede
+convertir sin error, porque la fuente mezcla unidades (`"4 semanas atrás"` y
+`"hace un mes"` son el mismo período con distinta precisión). `[2][2]` no siempre
+está presente, así que hay que degradar al texto relativo cuando falte.
+
+La lista completa de la reseña llega hasta el índice 48; esta tabla documenta
+solo los campos que consume el ETL.
 
 #### Limpieza del texto
 
