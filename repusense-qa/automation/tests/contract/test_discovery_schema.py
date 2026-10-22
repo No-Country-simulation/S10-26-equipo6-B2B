@@ -3,8 +3,19 @@
 import pytest
 from pydantic import ValidationError
 
+from app.core.config import Settings
 from app.schemas.discovery import Negocio
 from app.schemas.resenas import Resena
+
+
+def test_contrato_configuracion_base_issue_28() -> None:
+    """Valida los valores por defecto del contrato Settings (Issue #28 / #40 / #36)."""
+    cfg = Settings(_env_file=None)
+    assert cfg.app_name == "RepuSense API"
+    assert cfg.version == "0.1.0"
+    assert cfg.discovery_max_rating == 3.5
+    assert cfg.discovery_min_reviews == 10
+    assert cfg.etl_negative_rating_max == 3
 
 
 def test_contrato_negocio_campos_minimos_y_opcionales() -> None:
