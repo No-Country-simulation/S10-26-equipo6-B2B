@@ -1,0 +1,62 @@
+{
+  "negocio": "Clínica Cotocollao Quito",
+  "cid": "0x91d59a6a396e7a7b:0x7f93a83029608b1a",
+  "resenas": [
+    {
+      "id": "rev_cot_01",
+      "estrellas": 1,
+      "fecha": "una semana atrás",
+      "autor": "Camila meneses",
+      "texto": "Pésima atención en urgencias, demoraron más de 3 horas en atender."
+    },
+    {
+      "id": "rev_cot_02_vacia",
+      "estrellas": 1,
+      "fecha": "2 semanas atrás",
+      "autor": "Usuario Anónimo",
+      "texto": ""
+    },
+    {
+      "id": "rev_cot_03_positiva",
+      "estrellas": 5,
+      "fecha": "3 semanas atrás",
+      "autor": "Carlos Andrade",
+      "texto": "Excelente servicio médico."
+    },
+    {
+      "id": "rev_cot_04",
+      "estrellas": 1,
+      "fecha": "4 semanas atrás",
+      "autor": "CRISTINA AGUILAR",
+      "texto": "No contestan el teléfono y pierden los resultados de laboratorio."
+    },
+    {
+      "id": "rev_cot_05",
+      "estrellas": 2,
+      "fecha": "hace un mes",
+      "autor": "Mayra Arellano",
+      "texto": "Cobros excesivos y mala facturación."
+    },
+    {
+      "id": "rev_cot_06",
+      "estrellas": 1,
+      "fecha": "hace 3 meses",
+      "autor": "Jahiro Páez",
+      "texto": "Trato grosero en recepción, no respetan el turno agendado."
+    },
+    {
+      "id": "rev_cot_07",
+      "estrellas": 2,
+      "fecha": "hace 4 meses",
+      "autor": "PAMELA GUADALUPE MONCAYO",
+      "texto": "Instalaciones descuidadas y tiempos de espera eternos."
+    },
+    {
+      "id": "rev_cot_08_extra",
+      "estrellas": 1,
+      "fecha": "hace 5 meses",
+      "autor": "Roberto Silva",
+      "texto": "Sexta reseña negativa que no debe entrar por el tope de 5."
+    }
+  ]
+}
