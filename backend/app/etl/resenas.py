@@ -32,6 +32,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import UTC, datetime
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -182,10 +183,27 @@ def limpiar_texto(valor):
     return html.unescape(valor).strip()
 
 
+def parsear_epoch_ms(valor):
+    """Convierte el epoch en milisegundos del payload a ``datetime`` UTC.
+
+    La fuente lo serializa como string de 13 dígitos en la posición 2 de la
+    lista de fecha, un nivel más adentro que el texto relativo. Devuelve
+    ``None`` cuando falta o no se puede leer: el payload de Google cambia sin
+    aviso y una fecha ilegible no debe tumbar la recolección completa.
+    """
+    if not isinstance(valor, (str, int)) or isinstance(valor, bool):
+        return None
+    try:
+        return datetime.fromtimestamp(int(valor) / 1000, tz=UTC)
+    except (ValueError, OverflowError, OSError):
+        return None
+
+
 def extraer_campos(reseña):
     """Mapea los índices posicionales del JSON a campos con nombre."""
     fecha_lista = reseña[2] if len(reseña) > 2 and isinstance(reseña[2], list) else None
     autor_lista = reseña[3] if len(reseña) > 3 and isinstance(reseña[3], list) else None
+    epoch_ms = fecha_lista[2] if fecha_lista and len(fecha_lista) > 2 else None
 
     # El texto aparece en varios índices; se prefiere 27, luego 28 y luego 11.
     texto = ""
@@ -197,6 +215,7 @@ def extraer_campos(reseña):
     return {
         "estrellas": reseña[1] if len(reseña) > 1 else None,
         "fecha": (fecha_lista or [None])[0] if fecha_lista else None,
+        "fecha_absoluta": parsear_epoch_ms(epoch_ms),
         "autor": (autor_lista or [None])[0] if autor_lista else None,
         "id": reseña[5] if len(reseña) > 5 else "",
         "texto": texto,
@@ -231,6 +250,11 @@ def obtener_resenas(consulta, orden=2, tamano_pagina=20, max_paginas=6, max_rese
             time.sleep(PAUSA_ENTRE_PAGINAS)
 
         if salida:
+            # Una hora por lote: es la métrica que permite cronometrar la
+            # recolección y reprogramar reintentos (ERD, systemDesign.md:281).
+            momento = datetime.now(UTC)
+            for campos in salida:
+                campos["scraped_at"] = momento
             return salida, cid
         # CID valido pero sin reseñas: se prueba el siguiente candidato.
         time.sleep(PAUSA_ENTRE_CANDIDATOS)
@@ -250,17 +274,22 @@ def resumen_distribucion(reseñas):
     return dict(sorted(conteo.items(), reverse=True))
 
 
-def extraer_negativas(reseñas, cantidad):
+def extraer_negativas(reseñas, cantidad, max_estrellas=3):
     """Las N reseñas negativas más recientes que tengan texto.
 
-    Una reseña es negativa cuando su ``rating <= 3`` y su ``content`` no está
-    vacío (RF2 de ``docs/systemDesign.md``). Las reseñas sin cuerpo se
-    descartan para que no consuman una de las plazas.
+    Una reseña es negativa cuando su ``rating <= max_estrellas`` y su
+    ``content`` no está vacío (RF2 de ``docs/systemDesign.md``). Las reseñas
+    sin cuerpo se descartan para que no consuman una de las plazas.
+
+    El umbral entra por parámetro para que el parsing siga siendo stdlib-only;
+    quien lo lee de configuración es ``obtener_negativas``.
     """
     return [
         reseña
         for reseña in reseñas
-        if reseña["estrellas"] is not None and reseña["estrellas"] <= 3 and reseña["texto"]
+        if reseña["estrellas"] is not None
+        and reseña["estrellas"] <= max_estrellas
+        and reseña["texto"]
     ][:cantidad]
 
 
@@ -268,10 +297,14 @@ def obtener_negativas(consulta, cantidad=5):
     """Las ``cantidad`` reseñas negativas más recientes de un negocio.
 
     Función pública de la capa ETL: ejecuta la recolección completa y aplica
-    el filtro de RF2. Lanza ``ErrorRecoleccion`` cuando la fuente no responde.
+    el filtro de RF2 con el umbral de ``settings.etl_negative_rating_max``.
+    Lanza ``ErrorRecoleccion`` cuando la fuente no responde.
     """
+    # Import diferido: el núcleo de parsing no debe arrastrar pydantic-settings.
+    from app.core.config import settings
+
     reseñas, _cid = obtener_resenas(consulta)
-    return extraer_negativas(reseñas, cantidad)
+    return extraer_negativas(reseñas, cantidad, settings.etl_negative_rating_max)
 
 
 def correr_smoke_test():
