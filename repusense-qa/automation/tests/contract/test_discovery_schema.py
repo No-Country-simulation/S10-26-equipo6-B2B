@@ -1,5 +1,7 @@
 """Pruebas de contrato sobre los esquemas Pydantic de Discovery (#40) y Resenas (#36)."""
 
+from datetime import datetime, timezone
+
 import pytest
 from pydantic import ValidationError
 
@@ -40,10 +42,29 @@ def test_contrato_negocio_rechaza_sin_place_id() -> None:
         Negocio(nombre="Sin ID", rating=3.0, total_resenas=15)  # type: ignore[call-arg]
 
 
-def test_contrato_resena_valida_rango_estrellas_1_a_5() -> None:
-    """El contrato de Resena restringe estrellas al intervalo [1, 5]."""
-    resena = Resena(id="r1", estrellas=1, fecha="hace un mes", autor="Ana", texto="Mal servicio")
+def test_contrato_resena_valida_rango_estrellas_y_nuevos_campos_issue_52() -> None:
+    """El contrato de Resena restringe estrellas al intervalo [1, 5] y valida fecha_absoluta / scraped_at."""
+    momento_scraped = datetime.now(timezone.utc)
+    momento_revisado = datetime(2026, 10, 20, 15, 30, tzinfo=timezone.utc)
+
+    resena = Resena(
+        id="r1",
+        estrellas=1,
+        fecha="hace un mes",
+        fecha_absoluta=momento_revisado,
+        autor="Ana",
+        texto="Mal servicio",
+        scraped_at=momento_scraped,
+    )
     assert resena.estrellas == 1
+    assert resena.fecha_absoluta == momento_revisado
+    assert resena.scraped_at == momento_scraped
+
+    # Valores nulos opcionales aceptados
+    resena_vacia = Resena(id="r_minima", texto="Comentario basico")
+    assert resena_vacia.estrellas is None
+    assert resena_vacia.fecha_absoluta is None
+    assert resena_vacia.scraped_at is None
 
     with pytest.raises(ValidationError):
         Resena(id="r2", estrellas=6, fecha="hoy", autor="Ana", texto="Invalido")
