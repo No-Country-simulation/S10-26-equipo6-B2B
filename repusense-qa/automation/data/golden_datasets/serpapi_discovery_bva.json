@@ -1,0 +1,51 @@
+{
+  "search_metadata": {
+    "status": "Success",
+    "engine": "google_maps"
+  },
+  "local_results": [
+    {
+      "position": 1,
+      "title": "Clínica Dental X (Frontera Válida BVA)",
+      "place_id": "ChIJ_bva_valid_34_11",
+      "rating": 3.4,
+      "reviews": 11,
+      "type": "Clínica dental",
+      "address": "Av. Caracas 45-10, Bogotá",
+      "phone": "+57 601 555 0101",
+      "website": "https://clinicadentalx.co",
+      "business_status": "OPERATIONAL"
+    },
+    {
+      "position": 2,
+      "title": "Restaurante Y (Frontera Rechazada Rating 3.5)",
+      "place_id": "ChIJ_bva_reject_rating_35",
+      "rating": 3.5,
+      "reviews": 20,
+      "type": "Restaurante",
+      "address": "Calle 85 #12-30, Bogotá"
+    },
+    {
+      "position": 3,
+      "title": "Taller Z (Frontera Rechazada Reviews 10)",
+      "place_id": "ChIJ_bva_reject_reviews_10",
+      "rating": 2.8,
+      "reviews": 10,
+      "type": "Taller mecánico",
+      "address": "Carrera 30 #15-08, Bogotá"
+    },
+    {
+      "position": 4,
+      "title": "Negocio Sin Place ID",
+      "rating": 2.5,
+      "reviews": 45
+    },
+    {
+      "position": 5,
+      "title": "Negocio Sin Métricas",
+      "place_id": "ChIJ_no_metrics",
+      "rating": null,
+      "reviews": null
+    }
+  ]
+}
