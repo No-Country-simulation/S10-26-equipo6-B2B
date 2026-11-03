@@ -15,10 +15,19 @@ fueron bloqueadas por el lado del servidor.
 
 Resultado medido: **100 reseñas únicas en 6.5 s, 0 duplicados, $0.**
 
-## Uso
+## Uso e implementación
 
-El contrato de arriba está implementado en `backend/app/etl/resenas.py`, que
-solo usa la biblioteca estándar de Python. Corre desde `backend/` como módulo:
+El contrato de arriba está implementado en la capa `backend/app/etl/`, que
+solo usa la biblioteca estándar de Python. Para respetar el Principio de Responsabilidad
+Única (SRP), el código se divide en submódulos especializados:
+
+- `cliente.py`: transporte HTTP y protocolo del endpoint `GetLocalBoqProxy`
+- `parser.py`: limpieza y normalización posicional de los datos
+- `filtros.py`: filtro de negocio para reseñas negativas (`rating <= 3`)
+- `cli.py`: interfaz de terminal y smoke tests
+- `resenas.py`: fachada principal y orquestador del flujo ETL
+
+Mantiene compatibilidad total con la ejecución directa desde `backend/` como módulo:
 
 ```bash
 cd backend
