@@ -7,8 +7,8 @@ su ``content`` no está vacío. Usa reseñas fabricadas, sin red.
 
 from datetime import UTC
 
-from app.etl import resenas
-from app.etl.resenas import extraer_negativas
+from app.infrastructure.external import google_maps_client as resenas
+from app.infrastructure.external.google_maps_client import extraer_negativas
 
 
 def _resena(estrellas, texto, id_="r-1"):

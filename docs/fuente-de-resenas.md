@@ -17,17 +17,18 @@ Resultado medido: **100 reseñas únicas en 6.5 s, 0 duplicados, $0.**
 
 ## Uso e implementación
 
-El contrato de arriba está implementado en la capa `backend/app/etl/`, que
-solo usa la biblioteca estándar de Python. Para respetar el Principio de Responsabilidad
-Única (SRP), el código se divide en submódulos especializados:
+Para respetar el Principio de Responsabilidad Única (SRP) y alinearse con la
+arquitectura monolitíca por capas del backend:
 
-- `cliente.py`: transporte HTTP y protocolo del endpoint `GetLocalBoqProxy`
-- `parser.py`: limpieza y normalización posicional de los datos
-- `filtros.py`: filtro de negocio para reseñas negativas (`rating <= 3`)
-- `cli.py`: interfaz de terminal y smoke tests
-- `resenas.py`: fachada principal y orquestador del flujo ETL
+- **Infraestructura (`app/infrastructure/external/google_maps_client.py`):**
+  Cliente HTTP puro sin dependencias de terminal ni argumentos CLI, consumido por
+  la capa de servicios (`ProspectingService`).
+- **CLI y Diagnóstico (`app/etl/resenas.py`):**
+  Punto de entrada de línea de comandos y smoke test de salud del contrato,
+  delegando en el cliente de infraestructura.
 
-Mantiene compatibilidad total con la ejecución directa desde `backend/` como módulo:
+Ambos usan únicamente la biblioteca estándar de Python. La interfaz por consola
+corre desde `backend/` como módulo:
 
 ```bash
 cd backend

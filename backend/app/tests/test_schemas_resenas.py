@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from app.etl.resenas import extraer_campos
+from app.infrastructure.external.google_maps_client import extraer_campos
 from app.schemas.resenas import Resena
 
 
