@@ -1,273 +1,70 @@
-"""Cliente de reseñas de Google Maps: HTTP puro, sin navegador ni CLI.
+"""Cliente de reseñas de Google Maps: fachada y adaptador de infraestructura.
 
-Implementación de referencia del contrato documentado en
-``docs/fuente-de-resenas.md``. Realiza dos peticiones HTTP anónimas contra el
-endpoint que consume el propio frontend de Google Maps:
+Orquesta la interacción con el endpoint anónimo GetLocalBoqProxy delegando
+las responsabilidades en submódulos especializados:
+- ``protocol``: transporte HTTP y armado de payload reqpld.
+- ``parser``: sanitización HTML, parseo de timestamps y mapeo posicional.
+- ``filters``: reglas de selección de reseñas negativas.
 
-    1. ``search?tbm=map``   -> CID del lugar
-    2. ``GetLocalBoqProxy`` -> reseñas en JSON
-
-Este módulo no imprime en consola ni parsea argumentos: la capa de servicios
-consume ``GoogleMapsClient`` y la CLI de compatibilidad vive en
-``app.etl.resenas``.
+Consumido por la capa de servicios (``ProspectingService``) y testeable
+mediante inyección de dependencias y monkeypatching.
 """
 
-import html
-import json
-import re
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 from collections.abc import Callable
 from datetime import UTC, datetime
+from typing import Any
 
+from app.infrastructure.external.google_maps import filters, parser, protocol
+from app.infrastructure.external.google_maps.filters import extraer_negativas
+from app.infrastructure.external.google_maps.parser import (
+    _parsear_resenas,
+    extraer_campos,
+    limpiar_texto,
+    parsear_epoch_ms,
+    resumen_distribucion,
+)
+from app.infrastructure.external.google_maps.protocol import (
+    HEADERS,
+    ORDENES,
+    PAUSA_ENTRE_CANDIDATOS,
+    PAUSA_ENTRE_PAGINAS,
+    URL_BUSQUEDA,
+    URL_RESENAS,
+    USER_AGENT,
+    ErrorRecoleccion,
+    GoogleMapsError,
+    construir_payload,
+    extraer_cid,
+    http_get,
+    parsear_cid,
+)
 from app.schemas.resenas import Resena
 
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
-)
 
-HEADERS = {
-    "User-Agent": USER_AGENT,
-    "Accept": "*/*",
-    "Referer": "https://www.google.com/maps/",
-}
-
-URL_BUSQUEDA = "https://www.google.com/search?tbm=map&api=1&query="
-URL_RESENAS = (
-    "https://www.google.com/httpservice/web/PrivateLocalSearchUiDataService/"
-    "GetLocalBoqProxy?msc=gwsrpc&reqpld="
-)
-
-# Tasa de cortesía: acelerar invita al bloqueo /sorry/.
-PAUSA_ENTRE_PAGINAS = 0.6
-PAUSA_ENTRE_CANDIDATOS = 0.3
-
-# Códigos de orden que entiende el endpoint.
-ORDENES = {
-    1: "relevancia",
-    2: "mas recientes",
-    3: "mayor",
-    4: "menor",
-}
-
-
-class ErrorRecoleccion(Exception):
-    """Fallo recuperable durante la recolección, con mensaje accionable."""
-
-    def __init__(self, mensaje, codigo=None):
-        super().__init__(mensaje)
-        self.codigo = codigo
-
-
-def http_get(url, timeout=30):
-    """Devuelve (cuerpo, código_http). Nunca lanza por HTTP no esperado."""
-    peticion = urllib.request.Request(url, headers=HEADERS)
-    try:
-        with urllib.request.urlopen(peticion, timeout=timeout) as respuesta:
-            return respuesta.read().decode("utf-8", "replace"), respuesta.status
-    except urllib.error.HTTPError as error:
-        return error.read().decode("utf-8", "replace"), error.code
-    except Exception as error:  # se reporta al caller como código 0
-        return "EXC:" + str(error), 0
-
-
-def parsear_cid(cuerpo):
-    """Extrae los CID del cuerpo de la respuesta de búsqueda.
-
-    El filtro exige 6 o más caracteres hexadecimales a cada lado para descartar
-    los falsos positivos con la forma ``0x0:0x...``.
-    """
-    cuerpo = cuerpo.replace("\\u003a", ":")
-    encontrados = []
-    for coincidencia in re.finditer(r"0x([0-9a-fA-F]{6,}):0x([0-9a-fA-F]{6,})", cuerpo):
-        cid = "0x" + coincidencia.group(1) + ":0x" + coincidencia.group(2)
-        if cid not in encontrados:
-            encontrados.append(cid)
-    return encontrados
-
-
-def obtener_cids(consulta):
+# Funciones puente en el módulo para permitir monkeypatching en tests
+def obtener_cids(consulta: str) -> list[str]:
     """Paso 1: busca el lugar y devuelve sus CID candidatos."""
-    url = URL_BUSQUEDA + urllib.parse.quote(consulta)
-    cuerpo, codigo = http_get(url)
-    if codigo != 200:
-        raise ErrorRecoleccion(
-            f"la búsqueda devolvió HTTP {codigo}; probablemente hay un bloqueo por tasa",
-            codigo,
-        )
-    return parsear_cid(cuerpo)
+    return protocol.obtener_cids(consulta)
 
 
-def construir_payload(cid, orden, tamano_pagina, token):
-    """Arma el ``reqpld`` de GetLocalBoqProxy.
-
-    En la primera página el sub-array del índice 9 lleva el tamaño de página.
-    En la paginación ese mismo sub-array crece a 20 elementos y el token va en
-    la posición 19, un nivel más adentro que el CID. Es el error más fácil de
-    cometer al reimplementar el contrato.
-    """
-    if token is None:
-        sub_arreglo = [
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            [
-                None,
-                orden,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                tamano_pagina,
-                None,
-                [cid],
-            ],
-        ]
-    else:
-        sub_arreglo = [
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            [
-                None,
-                orden,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                [cid],
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                token,
-            ],
-        ]
-    return json.dumps([None, sub_arreglo], separators=(",", ":"))
-
-
-def obtener_pagina(cid, orden, tamano_pagina, token=None):
+def obtener_pagina(
+    cid: str, orden: int, tamano_pagina: int, token: str | None = None
+) -> tuple[list[Any], str | None]:
     """Paso 2: pide una página de reseñas y devuelve (reseñas, token_siguiente)."""
-    payload = construir_payload(cid, orden, tamano_pagina, token)
-    url = URL_RESENAS + urllib.parse.quote(payload, safe="")
-    cuerpo, codigo = http_get(url)
-
-    if codigo == 400:
-        raise ErrorRecoleccion(
-            "HTTP 400 en GetLocalBoqProxy: el formato del payload cambió",
-            codigo,
-        )
-    if codigo != 200:
-        raise ErrorRecoleccion(f"GetLocalBoqProxy devolvió HTTP {codigo}", codigo)
-
-    # El endpoint antepone el prefijo anti-XSSI ")]}'" al JSON.
-    bruto = cuerpo[4:].lstrip("\n") if cuerpo.startswith(")]}'") else cuerpo
-    try:
-        datos = json.loads(bruto)
-        resenas = datos[1][10][2]
-        siguiente = datos[1][10][6]
-    except (IndexError, TypeError, json.JSONDecodeError) as error:
-        raise ErrorRecoleccion(
-            f"la respuesta cambió de estructura ({error}): el endpoint fue modificado",
-            codigo,
-        ) from error
-
-    if not resenas and token is None:
-        raise ErrorRecoleccion(
-            "HTTP 200 con la lista vacía: el endpoint fue retirado",
-            codigo,
-        )
-    return resenas, siguiente
-
-
-def limpiar_texto(valor):
-    """Convierte los ``<br>`` en saltos de línea y decodifica entidades HTML."""
-    if not isinstance(valor, str):
-        return ""
-    valor = re.sub(r"<br\s*/?>", "\n", valor, flags=re.I)
-    return html.unescape(valor).strip()
-
-
-def parsear_epoch_ms(valor):
-    """Convierte el epoch en milisegundos del payload a ``datetime`` UTC.
-
-    La fuente lo serializa como string de 13 dígitos en la posición 2 de la
-    lista de fecha, un nivel más adentro que el texto relativo. Devuelve
-    ``None`` cuando falta o no se puede leer: el payload de Google cambia sin
-    aviso y una fecha ilegible no debe tumbar la recolección completa.
-    """
-    if not isinstance(valor, (str, int)) or isinstance(valor, bool):
-        return None
-    try:
-        return datetime.fromtimestamp(int(valor) / 1000, tz=UTC)
-    except (ValueError, OverflowError, OSError):
-        return None
-
-
-def extraer_campos(resena):
-    """Mapea los índices posicionales del JSON a campos con nombre."""
-    fecha_lista = resena[2] if len(resena) > 2 and isinstance(resena[2], list) else None
-    autor_lista = resena[3] if len(resena) > 3 and isinstance(resena[3], list) else None
-    epoch_ms = fecha_lista[2] if fecha_lista and len(fecha_lista) > 2 else None
-
-    # El texto aparece en varios índices; se prefiere 27, luego 28 y luego 11.
-    texto = ""
-    for indice in (27, 28, 11):
-        if indice < len(resena) and isinstance(resena[indice], str) and resena[indice].strip():
-            texto = limpiar_texto(resena[indice])
-            break
-
-    return {
-        "estrellas": resena[1] if len(resena) > 1 else None,
-        "fecha": (fecha_lista or [None])[0] if fecha_lista else None,
-        "fecha_absoluta": parsear_epoch_ms(epoch_ms),
-        "autor": (autor_lista or [None])[0] if autor_lista else None,
-        "id": resena[5] if len(resena) > 5 else "",
-        "texto": texto,
-    }
-
-
-def _parsear_resenas(resenas):
-    """Normaliza una lista cruda de reseñas con ``extraer_campos``."""
-    return [extraer_campos(resena) for resena in resenas]
+    return protocol.obtener_pagina(cid, orden, tamano_pagina, token)
 
 
 def obtener_resenas(
-    consulta,
-    orden=2,
-    tamano_pagina=20,
-    max_paginas=6,
-    max_resenas=100,
+    consulta: str,
+    orden: int = 2,
+    tamano_pagina: int = 20,
+    max_paginas: int = 6,
+    max_resenas: int = 100,
     *,
-    obtener_cids_fn: Callable | None = None,
-    obtener_pagina_fn: Callable | None = None,
-):
+    obtener_cids_fn: Callable[..., Any] | None = None,
+    obtener_pagina_fn: Callable[..., Any] | None = None,
+) -> tuple[list[dict[str, Any]], str]:
     """Recorre las páginas de un lugar, deduplicando por review ID.
 
     Devuelve (lista_de_reseñas, cid_utilizado). Las funciones de red son
@@ -282,16 +79,20 @@ def obtener_resenas(
         raise ErrorRecoleccion("la búsqueda no devolvió ningún CID válido")
 
     for cid in cids[:4]:
-        vistas, salida, token, pagina = set(), [], None, 0
+        vistas: set[str] = set()
+        salida: list[dict[str, Any]] = []
+        token: str | None = None
+        pagina = 0
         while pagina < max_paginas and len(salida) < max_resenas:
             resenas, token = pedir_pagina(cid, orden, tamano_pagina, token)
             nuevas = 0
             for resena in resenas:
                 campos = extraer_campos(resena)
-                if campos["id"] and campos["id"] in vistas:
+                review_id = campos.get("id")
+                if review_id and review_id in vistas:
                     continue
-                if campos["id"]:
-                    vistas.add(campos["id"])
+                if review_id:
+                    vistas.add(review_id)
                 salida.append(campos)
                 nuevas += 1
             pagina += 1
@@ -309,41 +110,13 @@ def obtener_resenas(
         # CID válido pero sin reseñas: se prueba el siguiente candidato.
         time.sleep(PAUSA_ENTRE_CANDIDATOS)
 
-    raise ErrorRecoleccion(f"ninguno de los {min(len(cids), 4)} CID candidatos devolvió reseñas")
+    raise ErrorRecoleccion(
+        f"ninguno de los {min(len(cids), 4)} CID candidatos devolvió reseñas"
+    )
 
 
-def resumen_distribucion(resenas):
-    """Histograma de estrellas, que la API oficial de Places no expone."""
-    conteo = {}
-    for resena in resenas:
-        estrellas = resena["estrellas"]
-        if estrellas is not None:
-            conteo[estrellas] = conteo.get(estrellas, 0) + 1
-    return dict(sorted(conteo.items(), reverse=True))
-
-
-def extraer_negativas(resenas, cantidad, max_estrellas=3):
-    """Las N reseñas negativas más recientes que tengan texto.
-
-    Una reseña es negativa cuando su ``rating <= max_estrellas`` y su
-    ``content`` no está vacío (RF2 de ``docs/systemDesign.md``). Las reseñas
-    sin cuerpo se descartan para que no consuman una de las plazas.
-
-    El umbral entra por parámetro para que el parsing siga siendo stdlib-only;
-    quien lo lee de configuración es ``obtener_negativas``.
-    """
-    return [
-        resena
-        for resena in resenas
-        if resena["estrellas"] is not None
-        and resena["estrellas"] <= max_estrellas
-        and resena["texto"]
-    ][:cantidad]
-
-
-def obtener_negativas(consulta, cantidad=5):
+def obtener_negativas(consulta: str, cantidad: int = 5) -> list[dict[str, Any]]:
     """Las ``cantidad`` reseñas negativas más recientes de un negocio."""
-    # Import diferido: el núcleo de parsing no debe arrastrar pydantic-settings.
     from app.core.config import settings
 
     resenas, _cid = obtener_resenas(consulta)
@@ -389,6 +162,32 @@ class GoogleMapsClient:
         return [Resena(**campos) for campos in negativas]
 
 
-# Alias de compatibilidad con la nomenclatura usada en el plan de arquitectura.
-extraer_cid = parsear_cid
-GoogleMapsError = ErrorRecoleccion
+__all__ = [
+    "HEADERS",
+    "ORDENES",
+    "PAUSA_ENTRE_CANDIDATOS",
+    "PAUSA_ENTRE_PAGINAS",
+    "URL_BUSQUEDA",
+    "URL_RESENAS",
+    "USER_AGENT",
+    "ErrorRecoleccion",
+    "GoogleMapsClient",
+    "GoogleMapsError",
+    "_parsear_resenas",
+    "construir_payload",
+    "extraer_campos",
+    "extraer_cid",
+    "extraer_negativas",
+    "filters",
+    "http_get",
+    "limpiar_texto",
+    "obtener_cids",
+    "obtener_negativas",
+    "obtener_pagina",
+    "obtener_resenas",
+    "parsear_cid",
+    "parsear_epoch_ms",
+    "parser",
+    "protocol",
+    "resumen_distribucion",
+]
