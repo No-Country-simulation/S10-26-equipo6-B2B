@@ -1,16 +1,27 @@
 """Endpoints de búsquedas de prospección."""
 
+from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db_session, get_prospecting_service
+from app.api.deps import get_db_session, get_prospecting_service, get_session_factory
 from app.schemas.busqueda import SearchCreate, SearchResponse, SearchStatusResponse
 from app.services.prospecting_service import ProspectingService
 
 router = APIRouter(prefix="/busquedas", tags=["Búsquedas"])
+
+
+def _ejecutar_prospeccion_background(
+    service: ProspectingService,
+    search_id: UUID,
+    session_factory: Callable[[], Session],
+) -> None:
+    """Ejecuta la prospección en segundo plano con una sesión de BD aislada."""
+    with session_factory() as db:
+        service.ejecutar_prospeccion_sync(db, search_id)
 
 
 @router.post(
@@ -21,17 +32,24 @@ router = APIRouter(prefix="/busquedas", tags=["Búsquedas"])
 )
 def crear_busqueda(
     datos: SearchCreate,
+    background_tasks: BackgroundTasks,
     db: Annotated[Session, Depends(get_db_session)],
     service: Annotated[ProspectingService, Depends(get_prospecting_service)],
+    session_factory: Annotated[Callable[[], Session], Depends(get_session_factory)],
 ) -> SearchResponse:
-    """Crea la búsqueda y ejecuta la prospección del MVP de forma síncrona.
+    """Crea la búsqueda y delega la prospección pesada a segundo plano.
 
-    La respuesta es el snapshot ``PENDING`` que exige el contrato 202; el
-    resultado final se consulta después con ``GET /busquedas/{id}``.
+    Responde inmediatamente con el snapshot ``PENDING`` (202 Accepted).
+    El cliente monitorea el progreso asíncrono con ``GET /api/v1/busquedas/{id}``.
     """
     search = service.iniciar_busqueda(db, datos)
     respuesta = SearchResponse.model_validate(search)
-    service.ejecutar_prospeccion_sync(db, search.search_id)
+    background_tasks.add_task(
+        _ejecutar_prospeccion_background,
+        service,
+        search.search_id,
+        session_factory,
+    )
     return respuesta
 
 
