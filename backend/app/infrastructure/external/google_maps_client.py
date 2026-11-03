@@ -1,13 +1,9 @@
 """Cliente de reseñas de Google Maps: fachada y adaptador de infraestructura.
 
-Orquesta la interacción con el endpoint anónimo GetLocalBoqProxy delegando
-las responsabilidades en submódulos especializados:
-- ``protocol``: transporte HTTP y armado de payload reqpld.
-- ``parser``: sanitización HTML, parseo de timestamps y mapeo posicional.
-- ``filters``: reglas de selección de reseñas negativas.
-
-Consumido por la capa de servicios (``ProspectingService``) y testeable
-mediante inyección de dependencias y monkeypatching.
+Implementa ``ReviewProviderProtocol`` delegando en submódulos SRP:
+- ``google_maps.protocol``: transporte HTTP y formato RPC GetLocalBoqProxy.
+- ``google_maps.parser``: decodificación HTML y mapeo posicional del payload.
+- ``app.services.review_filter``: regla de filtrado de reseñas negativas.
 """
 
 import time
@@ -15,8 +11,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from app.infrastructure.external.google_maps import filters, parser, protocol
-from app.infrastructure.external.google_maps.filters import extraer_negativas
+from app.infrastructure.external.google_maps import parser, protocol
 from app.infrastructure.external.google_maps.parser import (
     _parsear_resenas,
     extraer_campos,
@@ -40,9 +35,9 @@ from app.infrastructure.external.google_maps.protocol import (
     parsear_cid,
 )
 from app.schemas.resenas import Resena
+from app.services.review_filter import extraer_negativas
 
 
-# Funciones puente en el módulo para permitir monkeypatching en tests
 def obtener_cids(consulta: str) -> list[str]:
     """Paso 1: busca el lugar y devuelve sus CID candidatos."""
     return protocol.obtener_cids(consulta)
@@ -65,12 +60,7 @@ def obtener_resenas(
     obtener_cids_fn: Callable[..., Any] | None = None,
     obtener_pagina_fn: Callable[..., Any] | None = None,
 ) -> tuple[list[dict[str, Any]], str]:
-    """Recorre las páginas de un lugar, deduplicando por review ID.
-
-    Devuelve (lista_de_reseñas, cid_utilizado). Las funciones de red son
-    inyectables para que la capa de compatibilidad conserve la semántica de
-    ``monkeypatch`` de los tests existentes.
-    """
+    """Recorre las páginas de un lugar, deduplicando por review ID."""
     buscar_cids = obtener_cids_fn or obtener_cids
     pedir_pagina = obtener_pagina_fn or obtener_pagina
 
@@ -101,13 +91,10 @@ def obtener_resenas(
             time.sleep(PAUSA_ENTRE_PAGINAS)
 
         if salida:
-            # Una hora por lote: es la métrica que permite cronometrar la
-            # recolección y reprogramar reintentos (ERD, systemDesign.md:281).
             momento = datetime.now(UTC)
             for campos in salida:
                 campos["scraped_at"] = momento
             return salida, cid
-        # CID válido pero sin reseñas: se prueba el siguiente candidato.
         time.sleep(PAUSA_ENTRE_CANDIDATOS)
 
     raise ErrorRecoleccion(
@@ -124,7 +111,7 @@ def obtener_negativas(consulta: str, cantidad: int = 5) -> list[dict[str, Any]]:
 
 
 class GoogleMapsClient:
-    """Adaptador de la fuente de reseñas para la capa de servicios."""
+    """Adaptador de la fuente de reseñas que implementa ReviewProviderProtocol."""
 
     def __init__(
         self,
@@ -178,7 +165,6 @@ __all__ = [
     "extraer_campos",
     "extraer_cid",
     "extraer_negativas",
-    "filters",
     "http_get",
     "limpiar_texto",
     "obtener_cids",

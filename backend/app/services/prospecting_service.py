@@ -5,13 +5,12 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.infrastructure.external.google_maps_client import GoogleMapsClient
-from app.infrastructure.external.serpapi_client import SerpApiDiscovery
 from app.models.entities import Business, Search
 from app.repositories.business_repo import BusinessRepository
 from app.repositories.review_repo import ReviewRepository
 from app.repositories.search_repo import SearchRepository
 from app.schemas.busqueda import SearchCreate
+from app.services.protocols import DiscoveryProviderProtocol, ReviewProviderProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +23,9 @@ class ProspectingService:
         search_repo: SearchRepository,
         business_repo: BusinessRepository,
         review_repo: ReviewRepository,
-        serp_client: SerpApiDiscovery,
-        maps_client: GoogleMapsClient,
-    ):
+        serp_client: DiscoveryProviderProtocol,
+        maps_client: ReviewProviderProtocol,
+    ) -> None:
         self.search_repo = search_repo
         self.business_repo = business_repo
         self.review_repo = review_repo

@@ -18,25 +18,19 @@ Resultado medido: **100 reseñas únicas en 6.5 s, 0 duplicados, $0.**
 ## Uso e implementación
 
 Para respetar el Principio de Responsabilidad Única (SRP) y alinearse con la
-arquitectura monolitíca por capas del backend:
+arquitectura monolítica por capas del backend:
 
-- **Infraestructura (`app/infrastructure/external/google_maps_client.py`):**
-  Cliente HTTP puro sin dependencias de terminal ni argumentos CLI, consumido por
-  la capa de servicios (`ProspectingService`).
-- **CLI y Diagnóstico (`app/etl/resenas.py`):**
-  Punto de entrada de línea de comandos y smoke test de salud del contrato,
-  delegando en el cliente de infraestructura.
+- **`app/infrastructure/external/google_maps/protocol.py`**: transporte HTTP y
+  protocolo RPC `GetLocalBoqProxy`.
+- **`app/infrastructure/external/google_maps/parser.py`**: normalización
+  posicional del payload y decodificación HTML.
+- **`app/services/review_filter.py`**: regla de negocio para filtrado de
+  reseñas negativas (RF2: `rating <= 3` y texto no vacío).
+- **`app/infrastructure/external/google_maps_client.py`**: adaptador principal
+  que implementa `ReviewProviderProtocol`, consumido por la capa de servicios
+  (`ProspectingService`).
 
-Ambos usan únicamente la biblioteca estándar de Python. La interfaz por consola
-corre desde `backend/` como módulo:
-
-```bash
-cd backend
-python -m app.etl.resenas "Clínica Cotocollao Quito"
-python -m app.etl.resenas "Bocanáriz Santiago" --sort 4
-python -m app.etl.resenas "robstudiofit Talcahuano" --json
-python -m app.etl.resenas --smoke-test
-```
+Todos usan únicamente la biblioteca estándar de Python.
 
 ---
 

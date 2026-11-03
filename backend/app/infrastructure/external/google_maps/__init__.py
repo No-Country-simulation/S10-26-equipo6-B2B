@@ -1,6 +1,9 @@
-"""Submódulos de integración con Google Maps."""
+"""Subpaquete de infraestructura para Google Maps aplicando SRP.
 
-from app.infrastructure.external.google_maps.filters import extraer_negativas
+- ``protocol``: Transporte HTTP anónimo y construcción de payload RPC GetLocalBoqProxy.
+- ``parser``: Limpieza de entidades HTML, conversión de epoch ms y mapeo posicional.
+"""
+
 from app.infrastructure.external.google_maps.parser import (
     _parsear_resenas,
     extraer_campos,
@@ -40,7 +43,6 @@ __all__ = [
     "construir_payload",
     "extraer_campos",
     "extraer_cid",
-    "extraer_negativas",
     "http_get",
     "limpiar_texto",
     "obtener_cids",

@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -11,6 +12,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_db_session, get_session_factory
+from app.infrastructure.external.google_maps_client import GoogleMapsClient
+from app.infrastructure.external.serpapi_client import SerpApiDiscovery
 from app.main import app
 from app.models import (
     AIAnalysis,
@@ -27,6 +30,7 @@ from app.models import (
 from app.repositories.business_repo import BusinessRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.discovery import Negocio
+from app.services.protocols import DiscoveryProviderProtocol, ReviewProviderProtocol
 
 TABLAS_ESPERADAS = {
     "ai_analysis",
@@ -391,3 +395,21 @@ def test_patch_lead_status_invalido_da_422(cliente_sqlite) -> None:
     )
 
     assert respuesta.status_code == 422
+
+
+# --- Cumplimiento S.O.L.I.D. -------------------------------------------------
+
+
+def test_serpapi_discovery_implementa_el_protocolo_de_discovery() -> None:
+    """DIP: el cliente concreto satisface la abstracción de la capa de servicios."""
+    assert isinstance(SerpApiDiscovery(api_key="x"), DiscoveryProviderProtocol)
+
+
+def test_google_maps_client_implementa_el_protocolo_de_resenas() -> None:
+    """DIP: el adaptador de Maps satisface ``ReviewProviderProtocol``."""
+    assert isinstance(GoogleMapsClient(), ReviewProviderProtocol)
+
+
+def test_la_carpeta_etl_no_existe_en_el_paquete_de_la_api() -> None:
+    """Sanitización del workspace: prohibido revivir ``backend/app/etl/``."""
+    assert not (Path(__file__).resolve().parents[1] / "etl").exists()
