@@ -2,7 +2,6 @@
 
 from datetime import UTC, datetime
 from decimal import Decimal
-from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -410,6 +409,11 @@ def test_google_maps_client_implementa_el_protocolo_de_resenas() -> None:
     assert isinstance(GoogleMapsClient(), ReviewProviderProtocol)
 
 
-def test_la_carpeta_etl_no_existe_en_el_paquete_de_la_api() -> None:
-    """Sanitización del workspace: prohibido revivir ``backend/app/etl/``."""
-    assert not (Path(__file__).resolve().parents[1] / "etl").exists()
+def test_cli_etl_resenas_delega_en_google_maps_client() -> None:
+    """Soporte QA: ``app.etl.resenas`` es un shim CLI que delega en infrastructure."""
+    from app.etl import resenas
+    from app.infrastructure.external import google_maps_client
+
+    assert hasattr(resenas, "correr_smoke_test")
+    assert hasattr(resenas, "main")
+    assert resenas.obtener_resenas is google_maps_client.obtener_resenas
