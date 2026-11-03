@@ -9,7 +9,7 @@ import json
 import pytest
 
 from app.core.config import settings
-from app.providers.discovery import DiscoveryError, SerpApiDiscovery
+from app.infrastructure.external.serpapi_client import DiscoveryError, SerpApiDiscovery
 
 
 def _respuesta_serpapi(resultados: list[dict], next_url: str | None = None) -> str:
