@@ -1,12 +1,12 @@
 """Inyección de dependencias de la API."""
 
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from typing import Annotated
 
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from app.infrastructure.database.session import get_db
+from app.infrastructure.database.session import SessionLocal, get_db
 from app.infrastructure.external.google_maps_client import GoogleMapsClient
 from app.infrastructure.external.serpapi_client import SerpApiDiscovery
 from app.repositories.business_repo import BusinessRepository
@@ -31,3 +31,9 @@ def get_prospecting_service(
         serp_client=SerpApiDiscovery(),
         maps_client=GoogleMapsClient(),
     )
+
+
+def get_session_factory() -> Callable[[], Session]:
+    """Entrega la fábrica de sesiones para tareas asíncronas en segundo plano."""
+    return SessionLocal
+

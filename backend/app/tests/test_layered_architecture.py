@@ -10,7 +10,7 @@ from sqlalchemy import UniqueConstraint, Uuid, create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.api.deps import get_db_session
+from app.api.deps import get_db_session, get_session_factory
 from app.main import app
 from app.models import (
     AIAnalysis,
@@ -183,6 +183,7 @@ def cliente_sqlite():
             db.close()
 
     app.dependency_overrides[get_db_session] = override_get_db
+    app.dependency_overrides[get_session_factory] = lambda: fabrica
     cliente = TestClient(app)
     try:
         yield cliente, fabrica
@@ -261,6 +262,64 @@ def test_post_busqueda_con_payload_invalido_da_422(cliente_sqlite) -> None:
     )
 
     assert respuesta.status_code == 422
+
+
+def test_post_busqueda_valida_responde_202_y_pending(cliente_sqlite, monkeypatch) -> None:
+    cliente, _ = cliente_sqlite
+
+    # Evita llamadas de red síncronas/asíncronas en el test unitario del contrato
+    monkeypatch.setattr(
+        "app.services.prospecting_service.ProspectingService.ejecutar_prospeccion_sync",
+        lambda self, db, search_id: None,
+    )
+
+    respuesta = cliente.post(
+        "/api/v1/busquedas",
+        json={
+            "sector": "clínicas dentales",
+            "city": "Bogotá",
+            "max_rating": 3.5,
+            "min_reviews": 10,
+        },
+    )
+
+    assert respuesta.status_code == 202
+    cuerpo = respuesta.json()
+    assert cuerpo["status"] == "PENDING"
+    assert cuerpo["sector"] == "clínicas dentales"
+    assert cuerpo["city"] == "Bogotá"
+    assert "search_id" in cuerpo
+
+
+def test_get_busqueda_existente_devuelve_status(cliente_sqlite) -> None:
+    cliente, fabrica = cliente_sqlite
+    with fabrica() as db:
+        search = Search(
+            sector="restaurantes",
+            city="Lima",
+            status="IN_PROGRESS",
+        )
+        db.add(search)
+        db.commit()
+        search_id = str(search.search_id)
+
+    respuesta = cliente.get(f"/api/v1/busquedas/{search_id}")
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["search_id"] == search_id
+    assert cuerpo["status"] == "IN_PROGRESS"
+    assert cuerpo["leads_encontrados"] == 0
+
+
+def test_get_busqueda_inexistente_responde_404(cliente_sqlite) -> None:
+    cliente, _ = cliente_sqlite
+    random_id = uuid4()
+
+    respuesta = cliente.get(f"/api/v1/busquedas/{random_id}")
+
+    assert respuesta.status_code == 404
+    assert "no encontrada" in respuesta.json()["detail"]
 
 
 def test_get_leads_devuelve_paginated_response(cliente_sqlite) -> None:
