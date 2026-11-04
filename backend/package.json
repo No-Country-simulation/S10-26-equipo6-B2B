@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "description": "Backend de RepuSense — shim de tareas para que Turbo orqueste el workspace",
   "scripts": {
-    "dev": "uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000"
+    "dev": "uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+    "lint": "uv run --group dev ruff check app",
+    "test": "uv run --group dev pytest"
   }
 }
