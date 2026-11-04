@@ -42,6 +42,25 @@ services:
       timeout: 5s
       retries: 10
 
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: repusense-worker
+    command: ["uv", "run", "--no-sync", "python", "-m", "app.worker"]
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://repusense:repusense@postgres:5432/repusense
+      REDIS_URL: redis://redis:6379/0
+    profiles:
+      - worker
+      - full
+
 volumes:
   postgres_data:
   redis_data:
