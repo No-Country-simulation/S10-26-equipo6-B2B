@@ -26,7 +26,6 @@ from app.infrastructure.external.google_maps_client import (
     construir_payload,
     extraer_campos,
     extraer_cid,
-    extraer_negativas,
     http_get,
     limpiar_texto,
     obtener_cids,
@@ -37,6 +36,7 @@ from app.infrastructure.external.google_maps_client import (
     parsear_epoch_ms,
     resumen_distribucion,
 )
+from app.services.review_filter import extraer_negativas
 
 
 def correr_smoke_test() -> int:
