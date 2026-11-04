@@ -417,3 +417,69 @@ def test_cli_etl_resenas_delega_en_google_maps_client() -> None:
     assert hasattr(resenas, "correr_smoke_test")
     assert hasattr(resenas, "main")
     assert resenas.obtener_resenas is google_maps_client.obtener_resenas
+
+
+def test_flujo_unidireccional_estricto_de_capas() -> None:
+    """Layered Monolith: ninguna capa inferior debe importar de capas superiores.
+
+    Reglas formales (AGENTS.md y backend-layered-architecture.md):
+    1. infrastructure/ NUNCA importa de app.services ni app.api.
+    2. models/ y repositories/ NUNCA importan de app.services ni app.api.
+    3. services/ NUNCA importa de app.api.
+    """
+    import ast
+    from pathlib import Path
+
+    app_dir = Path(__file__).resolve().parents[1]
+
+    def _extraer_modulos_importados(archivo: Path) -> list[str]:
+        contenido = archivo.read_text(encoding="utf-8")
+        arbol = ast.parse(contenido, filename=str(archivo))
+        modulos: list[str] = []
+        for nodo in ast.walk(arbol):
+            if isinstance(nodo, ast.Import):
+                for alias in nodo.names:
+                    modulos.append(alias.name)
+            elif isinstance(nodo, ast.ImportFrom) and nodo.module:
+                modulos.append(nodo.module)
+        return modulos
+
+    # 1. infrastructure no debe importar de services ni de api
+    infra_dir = app_dir / "infrastructure"
+    for py_file in infra_dir.rglob("*.py"):
+        if "__pycache__" in py_file.parts:
+            continue
+        rel = py_file.relative_to(app_dir)
+        for mod in _extraer_modulos_importados(py_file):
+            assert not (mod == "app.services" or mod.startswith("app.services.")), (
+                f"Violación de capas: {rel} en infrastructure importa de '{mod}'"
+            )
+            assert not (mod == "app.api" or mod.startswith("app.api.")), (
+                f"Violación de capas: {rel} en infrastructure importa de '{mod}'"
+            )
+
+    # 2. models y repositories no deben importar de services ni de api
+    for capa in ("models", "repositories"):
+        capa_dir = app_dir / capa
+        for py_file in capa_dir.rglob("*.py"):
+            if "__pycache__" in py_file.parts:
+                continue
+            rel = py_file.relative_to(app_dir)
+            for mod in _extraer_modulos_importados(py_file):
+                assert not (mod == "app.services" or mod.startswith("app.services.")), (
+                    f"Violación de capas: {rel} en {capa} importa de '{mod}'"
+                )
+                assert not (mod == "app.api" or mod.startswith("app.api.")), (
+                    f"Violación de capas: {rel} en {capa} importa de '{mod}'"
+                )
+
+    # 3. services no debe importar de api
+    services_dir = app_dir / "services"
+    for py_file in services_dir.rglob("*.py"):
+        if "__pycache__" in py_file.parts:
+            continue
+        rel = py_file.relative_to(app_dir)
+        for mod in _extraer_modulos_importados(py_file):
+            assert not (mod == "app.api" or mod.startswith("app.api.")), (
+                f"Violación de capas: {rel} en services importa de '{mod}'"
+            )

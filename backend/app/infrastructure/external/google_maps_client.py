@@ -35,7 +35,6 @@ from app.infrastructure.external.google_maps.protocol import (
     parsear_cid,
 )
 from app.schemas.resenas import Resena
-from app.services.review_filter import extraer_negativas
 
 
 def obtener_cids(consulta: str) -> list[str]:
@@ -107,7 +106,13 @@ def obtener_negativas(consulta: str, cantidad: int = 5) -> list[dict[str, Any]]:
     from app.core.config import settings
 
     resenas, _cid = obtener_resenas(consulta)
-    return extraer_negativas(resenas, cantidad, settings.etl_negative_rating_max)
+    return [
+        r
+        for r in resenas
+        if r.get("estrellas") is not None
+        and r["estrellas"] <= settings.etl_negative_rating_max
+        and r.get("texto")
+    ][:cantidad]
 
 
 class GoogleMapsClient:
@@ -141,12 +146,14 @@ class GoogleMapsClient:
             max_paginas=self._max_paginas,
             max_resenas=self._max_resenas,
         )
-        negativas = extraer_negativas(
-            resenas,
-            cantidad,
-            settings.etl_negative_rating_max,
-        )
-        return [Resena(**campos) for campos in negativas]
+        candidatas = [
+            campos
+            for campos in resenas
+            if campos.get("estrellas") is not None
+            and campos["estrellas"] <= settings.etl_negative_rating_max
+            and campos.get("texto")
+        ][:cantidad]
+        return [Resena(**campos) for campos in candidatas]
 
 
 __all__ = [
@@ -164,7 +171,6 @@ __all__ = [
     "construir_payload",
     "extraer_campos",
     "extraer_cid",
-    "extraer_negativas",
     "http_get",
     "limpiar_texto",
     "obtener_cids",
