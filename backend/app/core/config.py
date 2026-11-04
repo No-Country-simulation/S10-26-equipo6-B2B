@@ -30,5 +30,10 @@ class Settings(BaseSettings):
     discovery_request_interval: float = 2.0  # cortesia entre paginas (segundos)
     discovery_gl: str = "mx"
 
+    # Analisis con IA y Cold Email (RF4). Si openai_api_key esta vacio,
+    # el cliente recurre al motor heuristico determinista offline.
+    openai_api_key: str = ""
+    ai_model: str = "gpt-4o-mini"
+
 
 settings = Settings()

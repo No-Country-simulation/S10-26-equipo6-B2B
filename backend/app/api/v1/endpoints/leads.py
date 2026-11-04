@@ -6,10 +6,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db_session, get_prospecting_service
+from app.api.deps import get_ai_service, get_db_session, get_prospecting_service
 from app.models.entities import Business, BusinessSource
+from app.schemas.ai import AIAnalysisResponse
 from app.schemas.common import PaginatedResponse
 from app.schemas.lead import LeadResponse, LeadStatusUpdate
+from app.services.ai_service import AIService
 from app.services.prospecting_service import ProspectingService
 
 router = APIRouter(prefix="/leads", tags=["Leads"])
@@ -26,6 +28,23 @@ def _mejor_fuente(sources: list[BusinessSource]) -> BusinessSource | None:
 
 def _a_lead_response(business: Business) -> LeadResponse:
     source = _mejor_fuente(business.sources)
+    ai_dto = None
+    if business.ai_analysis:
+        cat_name = (
+            business.ai_analysis.problem_category.name
+            if business.ai_analysis.problem_category
+            else "Otros"
+        )
+        ai_dto = AIAnalysisResponse(
+            analysis_id=business.ai_analysis.analysis_id,
+            business_id=business.business_id,
+            category=cat_name,
+            pain_points_summary=business.ai_analysis.pain_points_summary,
+            email_subject=business.ai_analysis.email_subject,
+            email_first_paragraph=business.ai_analysis.email_first_paragraph,
+            ai_model=business.ai_analysis.ai_model,
+            generated_at=business.ai_analysis.generated_at,
+        )
     return LeadResponse(
         business_id=business.business_id,
         name=business.name,
@@ -37,6 +56,7 @@ def _a_lead_response(business: Business) -> LeadResponse:
         website=business.website,
         lead_status=business.lead_status,
         created_at=business.created_at,
+        ai_analysis=ai_dto,
     )
 
 
@@ -94,3 +114,64 @@ def actualizar_estado_lead(
             detail=f"lead no encontrado: {lead_id}",
         )
     return _a_lead_response(business)
+
+
+@router.get(
+    "/{lead_id}/ai-analysis",
+    response_model=AIAnalysisResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Obtiene el análisis de IA y cold email de un lead",
+)
+def obtener_analisis_ia(
+    lead_id: UUID,
+    db: Annotated[Session, Depends(get_db_session)],
+    ai_service: Annotated[AIService, Depends(get_ai_service)],
+) -> AIAnalysisResponse:
+    """Devuelve el análisis generado con IA para este lead o 404 si aún no existe."""
+    analisis = ai_service.obtener_analisis(db, lead_id)
+    if analisis is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Análisis de IA no encontrado para el lead: {lead_id}",
+        )
+    return AIAnalysisResponse(
+        analysis_id=analisis.analysis_id,
+        business_id=analisis.business_id,
+        category=analisis.problem_category.name if analisis.problem_category else "Otros",
+        pain_points_summary=analisis.pain_points_summary,
+        email_subject=analisis.email_subject,
+        email_first_paragraph=analisis.email_first_paragraph,
+        ai_model=analisis.ai_model,
+        generated_at=analisis.generated_at,
+    )
+
+
+@router.post(
+    "/{lead_id}/ai-analysis",
+    response_model=AIAnalysisResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Genera o regenera el análisis de IA y cold email para un lead",
+)
+def generar_analisis_ia(
+    lead_id: UUID,
+    db: Annotated[Session, Depends(get_db_session)],
+    ai_service: Annotated[AIService, Depends(get_ai_service)],
+) -> AIAnalysisResponse:
+    """Ejecuta la inferencia de IA sobre las reseñas del lead y guarda el análisis."""
+    analisis = ai_service.analizar_negocio(db, lead_id)
+    if analisis is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Lead no encontrado para análisis: {lead_id}",
+        )
+    return AIAnalysisResponse(
+        analysis_id=analisis.analysis_id,
+        business_id=analisis.business_id,
+        category=analisis.problem_category.name if analisis.problem_category else "Otros",
+        pain_points_summary=analisis.pain_points_summary,
+        email_subject=analisis.email_subject,
+        email_first_paragraph=analisis.email_first_paragraph,
+        ai_model=analisis.ai_model,
+        generated_at=analisis.generated_at,
+    )
+

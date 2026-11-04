@@ -12,11 +12,14 @@ from sqlalchemy.orm import Session
 
 from app.infrastructure.database.session import SessionLocal
 from app.infrastructure.external.google_maps_client import GoogleMapsClient
+from app.infrastructure.external.llm_client import LLMClient
 from app.infrastructure.external.serpapi_client import SerpApiDiscovery
 from app.infrastructure.queue.redis_queue import RedisTaskQueue
+from app.repositories.ai_repo import AIRepository
 from app.repositories.business_repo import BusinessRepository
 from app.repositories.review_repo import ReviewRepository
 from app.repositories.search_repo import SearchRepository
+from app.services.ai_service import AIService
 from app.services.prospecting_service import ProspectingService
 
 logging.basicConfig(
@@ -37,6 +40,10 @@ def _capturar_senales(signum: int, _frame: FrameType | None) -> None:
 
 def instanciar_servicio(queue: RedisTaskQueue | None = None) -> ProspectingService:
     """Instancia el servicio de prospección con todas sus dependencias."""
+    ai_service = AIService(
+        ai_repo=AIRepository(),
+        ai_provider=LLMClient(),
+    )
     return ProspectingService(
         search_repo=SearchRepository(),
         business_repo=BusinessRepository(),
@@ -44,6 +51,7 @@ def instanciar_servicio(queue: RedisTaskQueue | None = None) -> ProspectingServi
         serp_client=SerpApiDiscovery(),
         maps_client=GoogleMapsClient(),
         task_queue=queue or RedisTaskQueue(),
+        ai_service=ai_service,
     )
 
 
