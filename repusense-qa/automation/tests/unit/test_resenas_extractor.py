@@ -53,12 +53,22 @@ def test_tc_extr_03_resiliencia_estructura_mutada_boqproxy(
 ) -> None:
     """TC-EXTR-03: Payload con prefijo )]}' pero sin data[1][10] lanza ErrorRecoleccion."""
     assert golden_payload_corrupto_boqproxy.startswith(")]}'")
+    # Patch compatible en cliente de protocolo y en shim de etl
+    try:
+        from app.infrastructure.external.google_maps import protocol
+        monkeypatch.setattr(
+            protocol,
+            "http_get",
+            lambda url, timeout=30: (golden_payload_corrupto_boqproxy, 200),
+        )
+    except ImportError:
+        pass
     monkeypatch.setattr(
         "app.etl.resenas.http_get",
         lambda url, timeout=30: (golden_payload_corrupto_boqproxy, 200),
     )
 
-    with pytest.raises(ErrorRecoleccion, match="cambio de estructura"):
+    with pytest.raises(ErrorRecoleccion, match=r"(cambi[oó] de estructura|modificado)"):
         obtener_pagina("0x91d59a6a396e7a7b:0x7f93a83029608b1a", orden=2, tamano_pagina=20)
 
 
@@ -103,9 +113,15 @@ def test_tc_extr_05_resiliencia_epoch_ms_a_utc() -> None:
 def test_tc_extr_06_estampado_scraped_at_por_lote(monkeypatch: pytest.MonkeyPatch) -> None:
     """TC-EXTR-06: obtener_resenas asigna scraped_at UTC consistente a todo el lote."""
     from app.etl import resenas as mod_resenas
+    try:
+        from app.infrastructure.external import google_maps_client
+    except ImportError:
+        google_maps_client = None
 
     # Mock de cids
     monkeypatch.setattr(mod_resenas, "obtener_cids", lambda consulta: ["cid_dummy_01"])
+    if google_maps_client:
+        monkeypatch.setattr(google_maps_client, "obtener_cids", lambda consulta: ["cid_dummy_01"])
 
     # Mock de pagina con 2 resenas en formato crudo
     raw_resenas = [
@@ -113,6 +129,8 @@ def test_tc_extr_06_estampado_scraped_at_por_lote(monkeypatch: pytest.MonkeyPatc
         [None, 2, ["Hace 2 dias", None, "1700100000000"], ["Pedro"], None, "id_02", None, None, None, None, None, "Regular"],
     ]
     monkeypatch.setattr(mod_resenas, "obtener_pagina", lambda cid, orden, tamano, token: (raw_resenas, None))
+    if google_maps_client:
+        monkeypatch.setattr(google_maps_client, "obtener_pagina", lambda cid, orden, tamano, token: (raw_resenas, None))
 
     lote, cid_usado = mod_resenas.obtener_resenas("clinica quito")
 

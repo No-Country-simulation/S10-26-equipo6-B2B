@@ -7,7 +7,11 @@ import json
 
 import pytest
 
-from app.providers.discovery import DiscoveryError, SerpApiDiscovery
+try:
+    from app.providers.discovery import DiscoveryError, SerpApiDiscovery
+except ModuleNotFoundError:
+    # Soporte para la nueva arquitectura por capas (backend/app/infrastructure/external)
+    from app.infrastructure.external.serpapi_client import DiscoveryError, SerpApiDiscovery
 
 
 def _mock_serpapi(resultados: list[dict], next_url: str | None = None) -> str:
@@ -115,7 +119,12 @@ def test_tc_disc_04_paginacion_mandatoria_ante_resultados_criticos_diluidos() ->
 def test_tc_disc_rate_limiting_intervalo_entre_paginas(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verifica que espera_s se ejecute entre paginas subsiguientes y no antes de la primera."""
     pausas: list[float] = []
-    monkeypatch.setattr("app.providers.discovery.time.sleep", lambda s: pausas.append(s))
+    patch_target = (
+        "app.infrastructure.external.serpapi_client.time.sleep"
+        if "app.infrastructure" in SerpApiDiscovery.__module__
+        else "app.providers.discovery.time.sleep"
+    )
+    monkeypatch.setattr(patch_target, lambda s: pausas.append(s))
 
     pag = _mock_serpapi(
         [{"title": "Lead", "place_id": "ChIJ_1", "rating": 3.0, "reviews": 20}],
