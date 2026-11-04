@@ -10,7 +10,11 @@ from app.repositories.business_repo import BusinessRepository
 from app.repositories.review_repo import ReviewRepository
 from app.repositories.search_repo import SearchRepository
 from app.schemas.busqueda import SearchCreate
-from app.services.protocols import DiscoveryProviderProtocol, ReviewProviderProtocol
+from app.services.protocols import (
+    DiscoveryProviderProtocol,
+    ReviewProviderProtocol,
+    TaskQueueProtocol,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +29,14 @@ class ProspectingService:
         review_repo: ReviewRepository,
         serp_client: DiscoveryProviderProtocol,
         maps_client: ReviewProviderProtocol,
+        task_queue: TaskQueueProtocol | None = None,
     ) -> None:
         self.search_repo = search_repo
         self.business_repo = business_repo
         self.review_repo = review_repo
         self.serp_client = serp_client
         self.maps_client = maps_client
+        self.task_queue = task_queue
 
     def iniciar_busqueda(self, db: Session, datos: SearchCreate) -> Search:
         """Registra la búsqueda en estado ``PENDING`` para respuesta inmediata."""
@@ -43,6 +49,12 @@ class ProspectingService:
         )
         db.commit()
         return search
+
+    def encolar_busqueda(self, search_id: UUID) -> bool:
+        """Encola la búsqueda en la cola de tareas asíncrona si está disponible."""
+        if self.task_queue is not None:
+            return self.task_queue.encolar(search_id)
+        return False
 
     def obtener_busqueda(self, db: Session, search_id: UUID) -> Search | None:
         return self.search_repo.get_by_id(db, search_id)

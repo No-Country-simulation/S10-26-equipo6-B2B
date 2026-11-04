@@ -44,12 +44,17 @@ def crear_busqueda(
     """
     search = service.iniciar_busqueda(db, datos)
     respuesta = SearchResponse.model_validate(search)
-    background_tasks.add_task(
-        _ejecutar_prospeccion_background,
-        service,
-        search.search_id,
-        session_factory,
-    )
+
+    # Prioridad: encolar en Redis para procesamiento por el worker desacoplado.
+    # Fallback: BackgroundTasks en memoria para tests o entornos locales sin Redis.
+    encolado = service.encolar_busqueda(search.search_id)
+    if not encolado:
+        background_tasks.add_task(
+            _ejecutar_prospeccion_background,
+            service,
+            search.search_id,
+            session_factory,
+        )
     return respuesta
 
 
