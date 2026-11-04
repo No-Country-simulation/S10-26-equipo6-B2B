@@ -27,3 +27,7 @@ Al interactuar o modificar el código dentro de `backend/`:
 
 5. **Modo Consulta y Validación:**
    - Nunca modificar código existente sin presentar primero el diseño y obtener aprobación explícita.
+
+6. **Protocolo de Verificación Fáctica (Anti-Alucinación):**
+   - Prohibido citar números de línea o reportar código duplicado sin verificar previamente con herramientas de lectura o búsqueda.
+   - Consultar siempre `AGENTS.md` como estándar maestro del repositorio.

@@ -1,3 +1,5 @@
+> 🤖 **ATENCIÓN AGENTES DE IA (Kiro, Claude, Cursor, Copilot, etc.):** Antes de analizar, auditar o modificar este repositorio, es **OBLIGATORIO** leer y acatar [AGENTS.md](./AGENTS.md). Está estrictamente prohibido alucinar líneas de código o proponer arquitecturas contrarias al Layered Monolith oficial.
+
 # RepuSense — Radar de Reputación en Crisis
 
 > **NoCountry · Simulación Laboral Abierta**
