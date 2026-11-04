@@ -10,6 +10,7 @@ from app.repositories.business_repo import BusinessRepository
 from app.repositories.review_repo import ReviewRepository
 from app.repositories.search_repo import SearchRepository
 from app.schemas.busqueda import SearchCreate
+from app.services.ai_service import AIService
 from app.services.protocols import (
     DiscoveryProviderProtocol,
     ReviewProviderProtocol,
@@ -30,6 +31,7 @@ class ProspectingService:
         serp_client: DiscoveryProviderProtocol,
         maps_client: ReviewProviderProtocol,
         task_queue: TaskQueueProtocol | None = None,
+        ai_service: AIService | None = None,
     ) -> None:
         self.search_repo = search_repo
         self.business_repo = business_repo
@@ -37,6 +39,7 @@ class ProspectingService:
         self.serp_client = serp_client
         self.maps_client = maps_client
         self.task_queue = task_queue
+        self.ai_service = ai_service
 
     def iniciar_busqueda(self, db: Session, datos: SearchCreate) -> Search:
         """Registra la búsqueda en estado ``PENDING`` para respuesta inmediata."""
@@ -103,6 +106,16 @@ class ProspectingService:
                         resenas,
                     )
                 db.commit()
+
+                if self.ai_service is not None:
+                    try:
+                        self.ai_service.analizar_negocio(db, source.business_id)
+                    except Exception as error:
+                        logger.warning(
+                            "Análisis con IA no pudo completarse para %s: %s",
+                            source.business_id,
+                            error,
+                        )
 
             self.search_repo.update_status(db, search_id, "COMPLETED")
             db.commit()

@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_db_session, get_session_factory
 from app.infrastructure.external.google_maps_client import GoogleMapsClient
+from app.infrastructure.external.llm_client import LLMClient
 from app.infrastructure.external.serpapi_client import SerpApiDiscovery
 from app.main import app
 from app.models import (
@@ -29,7 +30,11 @@ from app.models import (
 from app.repositories.business_repo import BusinessRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.discovery import Negocio
-from app.services.protocols import DiscoveryProviderProtocol, ReviewProviderProtocol
+from app.services.protocols import (
+    AIProviderProtocol,
+    DiscoveryProviderProtocol,
+    ReviewProviderProtocol,
+)
 
 TABLAS_ESPERADAS = {
     "ai_analysis",
@@ -407,6 +412,12 @@ def test_serpapi_discovery_implementa_el_protocolo_de_discovery() -> None:
 def test_google_maps_client_implementa_el_protocolo_de_resenas() -> None:
     """DIP: el adaptador de Maps satisface ``ReviewProviderProtocol``."""
     assert isinstance(GoogleMapsClient(), ReviewProviderProtocol)
+
+
+def test_llm_client_implementa_el_protocolo_de_ia() -> None:
+    """DIP: el cliente de IA satisface ``AIProviderProtocol``."""
+    assert isinstance(LLMClient(), AIProviderProtocol)
+
 
 
 def test_cli_etl_resenas_delega_en_google_maps_client() -> None:
