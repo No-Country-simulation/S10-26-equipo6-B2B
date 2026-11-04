@@ -15,18 +15,22 @@ fueron bloqueadas por el lado del servidor.
 
 Resultado medido: **100 reseñas únicas en 6.5 s, 0 duplicados, $0.**
 
-## Uso
+## Uso e implementación
 
-El contrato de arriba está implementado en `backend/app/etl/resenas.py`, que
-solo usa la biblioteca estándar de Python. Corre desde `backend/` como módulo:
+Para respetar el Principio de Responsabilidad Única (SRP) y alinearse con la
+arquitectura monolítica por capas del backend:
 
-```bash
-cd backend
-python -m app.etl.resenas "Clínica Cotocollao Quito"
-python -m app.etl.resenas "Bocanáriz Santiago" --sort 4
-python -m app.etl.resenas "robstudiofit Talcahuano" --json
-python -m app.etl.resenas --smoke-test
-```
+- **`app/infrastructure/external/google_maps/protocol.py`**: transporte HTTP y
+  protocolo RPC `GetLocalBoqProxy`.
+- **`app/infrastructure/external/google_maps/parser.py`**: normalización
+  posicional del payload y decodificación HTML.
+- **`app/services/review_filter.py`**: regla de negocio para filtrado de
+  reseñas negativas (RF2: `rating <= 3` y texto no vacío).
+- **`app/infrastructure/external/google_maps_client.py`**: adaptador principal
+  que implementa `ReviewProviderProtocol`, consumido por la capa de servicios
+  (`ProspectingService`).
+
+Todos usan únicamente la biblioteca estándar de Python.
 
 ---
 

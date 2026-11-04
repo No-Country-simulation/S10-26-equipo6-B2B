@@ -47,7 +47,7 @@ Representa al negocio como tal, sin importar en cuántas plataformas aparezca.
 | business_source_id | Identificador único de la ficha                                    | Clave para enlazar sus reseñas                                                                |
 | business_id        | A qué lead pertenece                                               | Une la ficha con el negocio                                                                   |
 | platform_id        | En qué plataforma está                                             | Indica si es de Google Maps, TripAdvisor, etc.                                                |
-| external_id        | El ID que la plataforma le da al lugar (ej. el place_id de Google) | Es la **clave anti-duplicados**: si vuelve a aparecer, se actualiza en vez de crear otro lead |
+| external_id        | El ID que la plataforma le da al lugar (ej. el place_id de Google) | Junto con `platform_id` forma la **clave anti-duplicados** (UNIQUE): si la ficha vuelve a aparecer, se actualiza en vez de duplicarse |
 | source_url         | Enlace a la ficha original                                         | Permite al vendedor abrir la página para verificar                                            |
 | rating             | Calificación promedio, ej. 2.9                                     | Es el dato que se filtra y se muestra en la tabla                                             |
 | total_reviews      | Cantidad total de reseñas                                          | Se usa para el filtro de “más de 10 reseñas”                                                  |
@@ -67,7 +67,7 @@ Representa al negocio como tal, sin importar en cuántas plataformas aparezca.
 |--------------------|----------------------------------------------|---------------------------------------------------------------------|
 | review_id          | Identificador único                          | Clave de la reseña                                                  |
 | business_source_id | A qué ficha pertenece                        | Asocia la reseña a una plataforma concreta                          |
-| external_id        | ID de la reseña en la plataforma (o un hash) | Evita guardar la misma reseña dos veces                             |
+| external_id        | ID de la reseña en la plataforma (o un hash) | Único por ficha: junto con `business_source_id` evita guardar la misma reseña dos veces                             |
 | author             | Nombre del autor (opcional)                  | Contexto; poco usado por el LLM                                     |
 | rating             | Estrellas de 1 a 5                           | Distingue reseñas negativas (≤ 3) de positivas                      |
 | content            | El texto del comentario (opcional)           | Es lo que lee el LLM para detectar el problema y redactar el correo |

@@ -256,17 +256,17 @@ El modelo define 9 tablas organizadas con claves primarias (uuid / smallint), cl
 **1. Gestión de búsquedas y rastreo: search y search_business**
 
 - `search`: almacena los parámetros de la prospección (sector, city, max_rating, min_reviews), su estado (status) y métricas temporales de ejecución (started_at, finished_at, error_message).
-- `search_business` (tabla intermedia N:M): desacopla las búsquedas de los negocios (search_id, business_id, found_at). Si un negocio es encontrado en múltiples prospecciones distintas (ej. "odontología" y "clínicas dentales"), no se duplica la entidad en la base de datos, conservando el historial completo de hallazgos.
+- `search_business` (tabla intermedia N:M): desacopla las búsquedas de los negocios (search_id, business_id, found_at). Clave primaria compuesta `(search_id, business_id)`, lo que impide registrar dos veces la misma relación en una ejecución. Si un negocio es encontrado en múltiples prospecciones distintas (ej. "odontología" y "clínicas dentales"), no se duplica la entidad en la base de datos, conservando el historial completo de hallazgos.
 
 **2. Entidad central del comercio y contactos multi-canal: business y contact**
 
-- `business`: almacena la entidad física o comercial (name, sector, city, address, phone_number, website, lead_status, contacted_at, created_at, last_update).
-- `contact`: tabla 1:N vinculada a business. Permite registrar múltiples vías de contacto (contact_type: email, teléfono, formulario web; value, source), ideal para almacenar varios correos encontrados durante el enriquecimiento secundario.
+- `business`: almacena la entidad física o comercial (name, sector, city, address, phone_number, website, lead_status, contacted_at, created_at, updated_at).
+- `contact`: tabla 1:N vinculada a business. Permite registrar múltiples vías de contacto encontradas durante el enriquecimiento secundario (contact_type: EMAIL o LINKEDIN; value: el email o la URL del perfil; source: BUSINESS_WEBSITE o LINKEDIN_SEARCH). El teléfono no se duplica acá: vive en `business.phone_number`.
 
 **3. Abstracción multiplataforma de fichas y reseñas: platform, business_source y review**
 
 - `platform`: catálogo maestro de fuentes de origen (platform_id, name: Google Maps, TripAdvisor, Yelp, etc.).
-- `business_source`: representa la ficha específica de un negocio en una plataforma concreta (external_id, source_url, rating, total_reviews, last_scraped_at). Permite que un mismo negocio tenga métricas e identidades separadas en Google y TripAdvisor.
+- `business_source`: representa la ficha específica de un negocio en una plataforma concreta (business_id, platform_id, external_id, source_url, rating, total_reviews, last_scraped_at). La restricción de unicidad (UK) sobre la pareja `(platform_id, external_id)` — la RNF3 — hace que re-escanear una ficha la actualice en lugar de duplicarla. Permite que un mismo negocio tenga métricas e identidades separadas en Google y TripAdvisor.
 - `review`: guarda las reseñas individuales extraídas de cada ficha (business_source_id, external_id, author, rating, content, reviewed_at, scraped_at).
 
 **4. Inteligencia artificial y clasificación: problem_category y ai_analysis**
@@ -279,6 +279,22 @@ El modelo define 9 tablas organizadas con claves primarias (uuid / smallint), cl
 - **Idempotencia y sin duplicados:** el desacoplamiento entre search, business y business_source garantiza que re-escanear una misma ciudad actualice la ficha (business_source) o añada nuevas reseñas (review) sin duplicar la empresa principal.
 - **Escalabilidad multiplataforma:** añadir Yelp o Trustpilot basta con insertar un registro en platform, sin modificar la estructura ni romper la tabla business.
 - **Auditoría del procesamiento asíncrono:** los campos started_at, finished_at, error_message en search y scraped_at en review permiten monitorear fallos en el worker de scraping y reprogramar reintentos con precisión.
+
+**Restricciones declaradas (PK / FK / UK):**
+
+| Tabla | Clave primaria | Claves foráneas | Unicidad (UK) |
+|---|---|---|---|
+| `search` | `search_id` (uuid) | — | — |
+| `search_business` | `(search_id, business_id)` | `search(search_id)`, `business(business_id)` | — |
+| `business` | `business_id` (uuid) | — | — |
+| `contact` | `contact_id` (uuid) | `business(business_id)` | — |
+| `platform` | `platform_id` (smallint) | — | `name` |
+| `business_source` | `business_source_id` (uuid) | `business(business_id)`, `platform(platform_id)` | `(platform_id, external_id)` (RNF3) |
+| `review` | `review_id` (uuid) | `business_source(business_source_id)` | `(business_source_id, external_id)` |
+| `problem_category` | `problem_category_id` (smallint) | — | `name` |
+| `ai_analysis` | `analysis_id` (uuid) | `business(business_id)`, `problem_category(problem_category_id)` | `business_id` (un análisis vigente por negocio) |
+
+Estas son las restricciones que las migraciones (issue #38) deben implementar. El detalle y el propósito de cada campo vive en `Diccionario_de_tablas_y_campos.md`.
 
 ## Paso 4 — Diseño de Alto Nivel (HLD)
 

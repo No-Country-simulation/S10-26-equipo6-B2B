@@ -8,7 +8,7 @@ de romper al reimplementar el contrato.
 import json
 from datetime import UTC, datetime
 
-from app.etl.resenas import (
+from app.infrastructure.external.google_maps_client import (
     construir_payload,
     limpiar_texto,
     parsear_cid,
