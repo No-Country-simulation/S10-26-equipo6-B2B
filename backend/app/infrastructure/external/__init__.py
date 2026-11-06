@@ -10,6 +10,7 @@ from app.infrastructure.external.serpapi_client import (
     SerpApiClient,
     SerpApiDiscovery,
 )
+from app.infrastructure.external.website_scraper import WebsiteScraper
 
 __all__ = [
     "DiscoveryError",
@@ -18,4 +19,5 @@ __all__ = [
     "LLMClient",
     "SerpApiClient",
     "SerpApiDiscovery",
+    "WebsiteScraper",
 ]

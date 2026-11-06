@@ -193,6 +193,14 @@ Respuesta (200 OK): `AIAnalysisResponse` con los detalles del análisis y cold e
 
 Respuesta (200 OK): ejecuta la inferencia de IA sobre las reseñas negativas registradas para el negocio, persiste el resultado de forma idempotente en `ai_analysis` y devuelve el `AIAnalysisResponse`.
 
+#### F. Consultar contactos de un lead — `GET /api/v1/leads/{lead_id}/contacts`
+
+Respuesta (200 OK): `list[ContactResponse]` con los correos electrónicos o canales de contacto vinculados al negocio.
+
+#### G. Enriquecer contactos desde la web del lead — `POST /api/v1/leads/{lead_id}/enrich-contacts`
+
+Respuesta (200 OK): ejecuta el rastreo secundario (`WebsiteScraper`) sobre la URL del negocio (revisando home y `/contacto`), extrae correos válidos mediante regex, los persiste sin duplicar en la tabla `contact` y devuelve la lista actualizada.
+
 ### 2. Esquema relacional inicial — versión simplificada (4 tablas)
 
 > Propuesta inicial de referencia; el ERD de 9 tablas (sección 3) la supera y es el modelo validado.
@@ -435,8 +443,8 @@ Las plataformas de reseñas no suelen mostrar el correo directo de las empresas,
 ```
 
 - **Paso A:** si la plataforma no proporciona email, el worker extrae el campo website de la ficha del negocio.
-- **Paso B:** se ejecuta un scraping secundario sobre el sitio web oficial explorando las rutas /contacto, /nosotros y el pie de página (footer).
-- **Paso C:** filtrado de correos mediante expresiones regulares (regex) y registro del resultado en la tabla contact, vinculándolo a la entidad business.
+- **Paso B:** se ejecuta un scraping secundario sobre el sitio web oficial explorando las rutas /contacto, /nosotros y el pie de página (footer) mediante `WebsiteScraper` (`backend/app/infrastructure/external/website_scraper.py`) con timeout estricto de 6s.
+- **Paso C:** filtrado de correos mediante expresiones regulares (regex) descartando assets/placeholders y registro idempotente sin duplicados en la tabla `contact` (`backend/app/repositories/contact_repo.py`), vinculándolo a la entidad `business`. La orquestación corre en `ContactEnrichmentService` bajo la abstracción `ContactEnricherProtocol`.
 
 ### 4. Inferencia estructurada con el LLM y Escudo Anti-Alucinación (RF4)
 

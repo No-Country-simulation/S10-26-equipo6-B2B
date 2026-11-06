@@ -56,3 +56,13 @@ class AIProviderProtocol(Protocol):
         """Clasifica las reseñas negativas y genera propuesta de cold email."""
         ...
 
+
+@runtime_checkable
+class ContactEnricherProtocol(Protocol):
+    """Contrato para cualquier extractor de datos de contacto desde la web del negocio."""
+
+    def extraer_emails(self, url_web: str) -> list[str]:
+        """Explora la web del negocio y devuelve correos electrónicos válidos."""
+        ...
+
+

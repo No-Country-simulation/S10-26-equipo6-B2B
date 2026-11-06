@@ -120,9 +120,10 @@ Diferenciador    genera automáticamente el asunto + primer párrafo
 |---|---|---|
 | ✅ | **Fuente de reseñas verificada** — contrato del endpoint anónimo, sin login ni cookies. Se probaron **9 combinaciones de scraping** que fueron bloqueadas; las reseñas de la API oficial de Places quedan en `[]` o limitadas a 5 por relevancia, insuficiente para las 5 negativas más recientes del brief. | [`docs/fuente-de-resenas.md`](docs/fuente-de-resenas.md) |
 | ✅ | **Módulo ETL y CLI de reseñas** — punto de entrada para smoke tests de QA y extracción, con paginación, umbral de negativas `rating <= 3` y manejo de CIDs. | [`backend/app/etl/resenas.py`](backend/app/etl/resenas.py) |
-| ✅ | **API REST y Layered Monolith** — endpoints de prospección (`POST /api/v1/busquedas`, `GET /api/v1/busquedas/{id}`, `GET /api/v1/leads`), arquitectura concéntrica desacoplada con DIP y suite de 100 tests en verde. | [`backend/app/api/`](backend/app/api/) · [`backend/app/services/`](backend/app/services/) |
+| ✅ | **API REST y Layered Monolith** — endpoints de prospección (`POST /api/v1/busquedas`, `GET /api/v1/busquedas/{id}`, `GET /api/v1/leads`), arquitectura concéntrica desacoplada con DIP y suite de 110 tests en verde. | [`backend/app/api/`](backend/app/api/) · [`backend/app/services/`](backend/app/services/) |
 | ✅ | **Procesamiento Asíncrono con Redis** — encolamiento en Redis (`LPUSH`/`BRPOP`) con fallback automático y proceso worker desacoplado (`python -m app.worker`). | [`backend/app/infrastructure/queue/`](backend/app/infrastructure/queue/) · [`backend/app/worker.py`](backend/app/worker.py) |
 | ✅ | **Feature Diferenciador IA y Cold Email (RF4)** — clasificador de reseñas con catálogo controlado (`problem_category`), generador de asunto y gancho de cold email, escudo anti-alucinación Pydantic (`[LLM_HALLUCINATION_DETECTED]`), contrato DIP (`AIProviderProtocol`) y endpoints dedicados. | [`backend/app/schemas/ai.py`](backend/app/schemas/ai.py) · [`backend/app/services/ai_service.py`](backend/app/services/ai_service.py) · [`backend/app/infrastructure/external/llm_client.py`](backend/app/infrastructure/external/llm_client.py) |
+| ✅ | **Enriquecimiento de Contactos Web (RF3)** — rastreo secundario sobre el sitio web oficial del lead para extraer correos válidos con regex, exclusión de falsos positivos, persistencia idempotente en `contact` y contrato DIP (`ContactEnricherProtocol`). | [`backend/app/infrastructure/external/website_scraper.py`](backend/app/infrastructure/external/website_scraper.py) · [`backend/app/services/enrichment_service.py`](backend/app/services/enrichment_service.py) · [`backend/app/repositories/contact_repo.py`](backend/app/repositories/contact_repo.py) |
 | ✅ | **Quality Gate Continuo (CI)** — pipeline de GitHub Actions ejecutando Ruff, Pytest, Oxlint y TypeScript Build en paralelo en < 30 s por cada PR. | [`.github/workflows/pr-quality-gate.yml`](.github/workflows/pr-quality-gate.yml) |
 | ✅ | **Infraestructura de contribución** — plantillas de issue y PR, directivas arquitectónicas y guía de contribución. | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) · [`AGENTS.md`](AGENTS.md) |
 
@@ -133,7 +134,6 @@ Diferenciador    genera automáticamente el asunto + primer párrafo
 | ⏳ | **2 · Dashboard de prospección** | Scaffold inicial listo. Pendiente UI con filtros, export a CSV y visualización de prospectos (#60). |
 | ⏳ | **3 · Base de datos con ≥ 200 leads** | Modelo de 9 tablas tipado en SQLAlchemy. Pendiente script de migraciones SQL para Docker (#38). |
 | ✅ | **4 · Feature diferenciador IA** | Clasificación de problemas y generación de cold email con LLM, catálogo controlado y escudo anti-alucinación (#73). |
-| ⬜ | **Enriquecimiento de contacto** | Cruce de leads con email web o LinkedIn del propietario. |
 
 ---
 
@@ -148,7 +148,7 @@ Diferenciador    genera automáticamente el asunto + primer párrafo
 │   ├── app/                  Layered Monolith (api, services, repositories, models, infrastructure)
 │   │   ├── etl/              CLI de reseñas y smoke test de QA
 │   │   └── worker.py         Proceso worker desacoplado para tareas de Redis
-│   └── tests/                Suite de 100 pruebas unitarias, de contrato y arquitectura
+│   └── tests/                Suite de 110 pruebas unitarias, de contrato y arquitectura
 ├── frontend/
 │   └── src/                  Dashboard en React 19 + TypeScript + Vite
 ├── docs/

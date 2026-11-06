@@ -14,6 +14,7 @@ from app.api.deps import get_db_session, get_session_factory
 from app.infrastructure.external.google_maps_client import GoogleMapsClient
 from app.infrastructure.external.llm_client import LLMClient
 from app.infrastructure.external.serpapi_client import SerpApiDiscovery
+from app.infrastructure.external.website_scraper import WebsiteScraper
 from app.main import app
 from app.models import (
     AIAnalysis,
@@ -32,6 +33,7 @@ from app.schemas.common import PaginatedResponse
 from app.schemas.discovery import Negocio
 from app.services.protocols import (
     AIProviderProtocol,
+    ContactEnricherProtocol,
     DiscoveryProviderProtocol,
     ReviewProviderProtocol,
 )
@@ -417,6 +419,12 @@ def test_google_maps_client_implementa_el_protocolo_de_resenas() -> None:
 def test_llm_client_implementa_el_protocolo_de_ia() -> None:
     """DIP: el cliente de IA satisface ``AIProviderProtocol``."""
     assert isinstance(LLMClient(), AIProviderProtocol)
+
+
+def test_website_scraper_implementa_el_protocolo_de_contactos() -> None:
+    """DIP: el scraper web satisface ``ContactEnricherProtocol``."""
+    assert isinstance(WebsiteScraper(), ContactEnricherProtocol)
+
 
 
 
