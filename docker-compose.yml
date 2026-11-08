@@ -22,6 +22,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Aplica las migraciones SQL en un volumen nuevo (desde cero).
+      - ./backend/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U repusense -d repusense"]
       interval: 5s
