@@ -1,5 +1,3 @@
-> 🤖 **ATENCIÓN AGENTES DE IA (Kiro, Claude, Cursor, Copilot, etc.):** Antes de analizar, auditar o modificar este repositorio, es **OBLIGATORIO** leer y acatar [AGENTS.md](./AGENTS.md). Está estrictamente prohibido alucinar líneas de código o proponer arquitecturas contrarias al Layered Monolith oficial.
-
 # RepuSense — Radar de Reputación en Crisis
 
 > **NoCountry · Simulación Laboral Abierta**
@@ -120,20 +118,22 @@ Diferenciador    genera automáticamente el asunto + primer párrafo
 
 | | Artefacto | Dónde |
 |---|---|---|
-| ✅ | **Fuente de reseñas verificada** — contrato del endpoint anónimo, sin login ni cookies. Se probaron **9 combinaciones de scraping** que fueron bloqueadas (Maps y Search en headless, stealth, headed, y HTTP plano); las reseñas de la API oficial de Places quedan en `[]` o limitadas a 5 por relevancia, insuficiente para las 5 negativas más recientes que pide el brief. | [`docs/fuente-de-resenas.md`](docs/fuente-de-resenas.md) |
-| ✅ | **Módulo ETL de reseñas** — obtiene reseñas de un negocio, con deduplicación por ID, rate limiting ~1 req/s, paginación, umbral de negativas `rating <= 3` y tres señales de fallo. | [`backend/app/etl/resenas.py`](backend/app/etl/resenas.py) |
-| ✅ | **Infraestructura de contribución** — plantillas de issue y PR, guía de contribución. | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) · [`.github/`](.github/) |
+| ✅ | **Fuente de reseñas verificada** — contrato del endpoint anónimo, sin login ni cookies. Se probaron **9 combinaciones de scraping** que fueron bloqueadas; las reseñas de la API oficial de Places quedan en `[]` o limitadas a 5 por relevancia, insuficiente para las 5 negativas más recientes del brief. | [`docs/fuente-de-resenas.md`](docs/fuente-de-resenas.md) |
+| ✅ | **Módulo ETL y CLI de reseñas** — punto de entrada para smoke tests de QA y extracción, con paginación, umbral de negativas `rating <= 3` y manejo de CIDs. | [`backend/app/etl/resenas.py`](backend/app/etl/resenas.py) |
+| ✅ | **API REST y Layered Monolith** — endpoints de prospección (`POST /api/v1/busquedas`, `GET /api/v1/busquedas/{id}`, `GET /api/v1/leads`), arquitectura concéntrica desacoplada con DIP y suite de 110 tests en verde. | [`backend/app/api/`](backend/app/api/) · [`backend/app/services/`](backend/app/services/) |
+| ✅ | **Procesamiento Asíncrono con Redis** — encolamiento en Redis (`LPUSH`/`BRPOP`) con fallback automático y proceso worker desacoplado (`python -m app.worker`). | [`backend/app/infrastructure/queue/`](backend/app/infrastructure/queue/) · [`backend/app/worker.py`](backend/app/worker.py) |
+| ✅ | **Feature Diferenciador IA y Cold Email (RF4)** — clasificador de reseñas con catálogo controlado (`problem_category`), generador de asunto y gancho de cold email, escudo anti-alucinación Pydantic (`[LLM_HALLUCINATION_DETECTED]`), contrato DIP (`AIProviderProtocol`) y endpoints dedicados. | [`backend/app/schemas/ai.py`](backend/app/schemas/ai.py) · [`backend/app/services/ai_service.py`](backend/app/services/ai_service.py) · [`backend/app/infrastructure/external/llm_client.py`](backend/app/infrastructure/external/llm_client.py) |
+| ✅ | **Enriquecimiento de Contactos Web (RF3)** — rastreo secundario sobre el sitio web oficial del lead para extraer correos válidos con regex, exclusión de falsos positivos, persistencia idempotente en `contact` y contrato DIP (`ContactEnricherProtocol`). | [`backend/app/infrastructure/external/website_scraper.py`](backend/app/infrastructure/external/website_scraper.py) · [`backend/app/services/enrichment_service.py`](backend/app/services/enrichment_service.py) · [`backend/app/repositories/contact_repo.py`](backend/app/repositories/contact_repo.py) |
+| ✅ | **Quality Gate Continuo (CI)** — pipeline de GitHub Actions ejecutando Ruff, Pytest, Oxlint y TypeScript Build en paralelo en < 30 s por cada PR. | [`.github/workflows/pr-quality-gate.yml`](.github/workflows/pr-quality-gate.yml) |
+| ✅ | **Infraestructura de contribución** — plantillas de issue y PR, directivas arquitectónicas y guía de contribución. | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) · [`AGENTS.md`](AGENTS.md) |
 
 ### Pendiente
 
 | | Entregable | Estado |
 |---|---|---|
-| ⏳ | **1 · Motor de extracción funcional** | Fuente verificada y script de referencia listos. Falta el pipeline o API que reciba `rubro + ubicación`, aplique los filtros del brief y sirva los resultados. |
-| ⬜ | **2 · Dashboard de prospección** | No iniciado. Tabla con filtros, export a CSV y copiar draft. |
-| ⬜ | **3 · Base de datos con ≥ 200 leads** | No iniciado. Requiere el motor funcionando y el modelo de datos resuelto (desafío 3). |
-| ⬜ | **4 · Feature diferenciador IA** | No iniciado. Asunto + primer párrafo generado desde las quejas reales. |
-| ⬜ | **Enriquecimiento de contacto** | No iniciado. Email + LinkedIn del dueño (desafío 2). |
-| ⬜ | **Cierre de stack** | Decisión pendiente del equipo. |
+| ⏳ | **2 · Dashboard de prospección** | Scaffold inicial listo. Pendiente UI con filtros, export a CSV y visualización de prospectos (#60). |
+| ⏳ | **3 · Base de datos con ≥ 200 leads** | Modelo de 9 tablas tipado en SQLAlchemy. Pendiente script de migraciones SQL para Docker (#38). |
+| ✅ | **4 · Feature diferenciador IA** | Clasificación de problemas y generación de cold email con LLM, catálogo controlado y escudo anti-alucinación (#73). |
 
 ---
 
@@ -141,13 +141,23 @@ Diferenciador    genera automáticamente el asunto + primer párrafo
 
 ```
 ├── .github/
+│   ├── workflows/            Pipeline de Quality Gate continuo (CI)
 │   ├── ISSUE_TEMPLATE/       Plantillas de bug y feature
 │   └── pull_request_template.md
 ├── backend/
-│   └── app/                  API FastAPI, capa ETL y proveedores externos
-└── docs/
-    ├── CONTRIBUTING.md       Guía de contribución y flujo de revisión
-    └── fuente-de-resenas.md  Contrato del endpoint y evidencia de verificación
+│   ├── app/                  Layered Monolith (api, services, repositories, models, infrastructure)
+│   │   ├── etl/              CLI de reseñas y smoke test de QA
+│   │   └── worker.py         Proceso worker desacoplado para tareas de Redis
+│   └── tests/                Suite de 110 pruebas unitarias, de contrato y arquitectura
+├── frontend/
+│   └── src/                  Dashboard en React 19 + TypeScript + Vite
+├── docs/
+│   ├── CONTRIBUTING.md       Guía de contribución y flujo de revisión
+│   ├── systemDesign.md       Diseño de sistema, ERD de 9 tablas y flujos
+│   ├── Diccionario_de_tablas_y_campos.md  Diccionario de datos normalizado
+│   └── fuente-de-resenas.md  Contrato del endpoint y evidencia de verificación
+├── docker-compose.yml        Infraestructura local (PostgreSQL 16, Redis 7 y Worker)
+└── AGENTS.md                 Directrices arquitectónicas oficiales y protocolo anti-alucinación
 ```
 
 ---

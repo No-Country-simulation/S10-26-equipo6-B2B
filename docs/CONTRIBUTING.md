@@ -137,21 +137,24 @@ Cada Pull Request debe usar la plantilla del repositorio e incluir:
 - Evidencia de verificación.
 - Checklist completo.
 
-## Validación local
+## Validación local y CI
 
-Ejecutá desde la raíz:
+Ejecutá desde la raíz del monorepo:
 
 ```bash
-pnpm lint
-pnpm build
+pnpm lint      # ejecuta oxlint en frontend y ruff en backend simultáneamente
+pnpm test      # ejecuta la suite completa de 85 tests de pytest
+pnpm build     # valida el tipado de TypeScript y la compilación de Vite
 ```
 
-El backend en Python tiene sus propios controles, desde `backend/`:
+El backend en Python también puede validarse de forma aislada desde `backend/`:
 
 ```bash
 uv run --group dev ruff check app
 uv run --group dev pytest
 ```
+
+Todo Pull Request dispara automáticamente el **Quality Gate en GitHub Actions** (`.github/workflows/pr-quality-gate.yml`), el cual bloquea el merge si alguna prueba falla o el linter reporta advertencias.
 
 ## Base de datos local
 

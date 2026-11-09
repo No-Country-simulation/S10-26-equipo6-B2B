@@ -12,12 +12,19 @@ from sqlalchemy.orm import Session
 
 from app.infrastructure.database.session import SessionLocal
 from app.infrastructure.external.google_maps_client import GoogleMapsClient
+from app.infrastructure.external.llm_client import LLMClient
 from app.infrastructure.external.serpapi_client import SerpApiDiscovery
+from app.infrastructure.external.website_scraper import WebsiteScraper
 from app.infrastructure.queue.redis_queue import RedisTaskQueue
+from app.repositories.ai_repo import AIRepository
 from app.repositories.business_repo import BusinessRepository
+from app.repositories.contact_repo import ContactRepository
 from app.repositories.review_repo import ReviewRepository
 from app.repositories.search_repo import SearchRepository
+from app.services.ai_service import AIService
+from app.services.enrichment_service import ContactEnrichmentService
 from app.services.prospecting_service import ProspectingService
+from app.services.review_filter import extraer_negativas
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,13 +44,26 @@ def _capturar_senales(signum: int, _frame: FrameType | None) -> None:
 
 def instanciar_servicio(queue: RedisTaskQueue | None = None) -> ProspectingService:
     """Instancia el servicio de prospección con todas sus dependencias."""
+    business_repo = BusinessRepository()
+    ai_service = AIService(
+        ai_repo=AIRepository(),
+        ai_provider=LLMClient(),
+        business_repo=business_repo,
+    )
+    enrichment_service = ContactEnrichmentService(
+        contact_repo=ContactRepository(),
+        enricher=WebsiteScraper(),
+        business_repo=business_repo,
+    )
     return ProspectingService(
         search_repo=SearchRepository(),
-        business_repo=BusinessRepository(),
+        business_repo=business_repo,
         review_repo=ReviewRepository(),
         serp_client=SerpApiDiscovery(),
-        maps_client=GoogleMapsClient(),
+        maps_client=GoogleMapsClient(filtro_fn=extraer_negativas),
         task_queue=queue or RedisTaskQueue(),
+        ai_service=ai_service,
+        enrichment_service=enrichment_service,
     )
 
 

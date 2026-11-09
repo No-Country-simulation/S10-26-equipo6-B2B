@@ -147,28 +147,59 @@ Respuesta (200 OK):
 
 #### C. Listar leads filtrados (dashboard comercial) — `GET /api/v1/leads`
 
-Parámetros de consulta (query params): `?busqueda_id=uuid&categoria_problema=atencion&page=1&limit=20`
+Parámetros de consulta (query params): `?busqueda_id=uuid&city=Bogota&sector=clinicas&status=NEW&page=1&limit=20`
 
 Respuesta (200 OK):
 
 ```json
 {
-  "total": 20,
-  "pagina": 1,
-  "datos": [
+  "items": [
     {
-      "id": "11223344-5566-7788-9900-aabbccddeeff",
-      "nombre": "Clínica Dental Ejemplo",
-      "calificacion": 3.1,
-      "telefono": "+573001234567",
-      "email": "contacto@dentalejemplo.com",
-      "problema_principal": "Atención al cliente",
-      "borrador_asunto": "Mejora la retención de pacientes en Clínica Dental Ejemplo",
-      "estado_lead": "ANALIZADO_IA"
+      "business_id": "11223344-5566-7788-9900-aabbccddeeff",
+      "name": "Clínica Dental Ejemplo",
+      "sector": "clínicas dentales",
+      "city": "Bogotá",
+      "rating": 3.1,
+      "total_reviews": 12,
+      "phone_number": "+573001234567",
+      "website": "https://dentalejemplo.com",
+      "lead_status": "NEW",
+      "created_at": "2026-10-20T10:00:00Z",
+      "ai_analysis": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440000",
+        "business_id": "11223344-5566-7788-9900-aabbccddeeff",
+        "category": "Atención al cliente",
+        "pain_points_summary": "Los clientes señalan tiempos de espera excesivos y trato desatento.",
+        "email_subject": "Oportunidad de mejora en atención al cliente para Clínica Dental Ejemplo",
+        "email_first_paragraph": "Hola equipo de Clínica Dental Ejemplo...",
+        "ai_model": "gpt-4o-mini",
+        "generated_at": "2026-10-20T10:05:00Z"
+      }
     }
-  ]
+  ],
+  "total": 1,
+  "page": 1,
+  "page_size": 20,
+  "total_pages": 1,
+  "has_next": false
 }
 ```
+
+#### D. Consultar análisis con IA de un lead — `GET /api/v1/leads/{lead_id}/ai-analysis`
+
+Respuesta (200 OK): `AIAnalysisResponse` con los detalles del análisis y cold email. Si el lead aún no ha sido analizado, devuelve `404 Not Found`.
+
+#### E. Generar / regenerar análisis con IA bajo demanda — `POST /api/v1/leads/{lead_id}/ai-analysis`
+
+Respuesta (200 OK): ejecuta la inferencia de IA sobre las reseñas negativas registradas para el negocio, persiste el resultado de forma idempotente en `ai_analysis` y devuelve el `AIAnalysisResponse`.
+
+#### F. Consultar contactos de un lead — `GET /api/v1/leads/{lead_id}/contacts`
+
+Respuesta (200 OK): `list[ContactResponse]` con los correos electrónicos o canales de contacto vinculados al negocio.
+
+#### G. Enriquecer contactos desde la web del lead — `POST /api/v1/leads/{lead_id}/enrich-contacts`
+
+Respuesta (200 OK): ejecuta el rastreo secundario (`WebsiteScraper`) sobre la URL del negocio (revisando home y `/contacto`), extrae correos válidos mediante regex, los persiste sin duplicar en la tabla `contact` y devuelve la lista actualizada.
 
 ### 2. Esquema relacional inicial — versión simplificada (4 tablas)
 
@@ -412,26 +443,43 @@ Las plataformas de reseñas no suelen mostrar el correo directo de las empresas,
 ```
 
 - **Paso A:** si la plataforma no proporciona email, el worker extrae el campo website de la ficha del negocio.
-- **Paso B:** se ejecuta un scraping secundario sobre el sitio web oficial explorando las rutas /contacto, /nosotros y el pie de página (footer).
-- **Paso C:** filtrado de correos mediante expresiones regulares (regex) y registro del resultado en la tabla contact, vinculándolo a la entidad business.
+- **Paso B:** se ejecuta un scraping secundario sobre el sitio web oficial explorando las rutas /contacto, /nosotros y el pie de página (footer) mediante `WebsiteScraper` (`backend/app/infrastructure/external/website_scraper.py`) con timeout estricto de 6s.
+- **Paso C:** filtrado de correos mediante expresiones regulares (regex) descartando assets/placeholders y registro idempotente sin duplicados en la tabla `contact` (`backend/app/repositories/contact_repo.py`), vinculándolo a la entidad `business`. La orquestación corre en `ContactEnrichmentService` bajo la abstracción `ContactEnricherProtocol`.
 
-### 4. Inferencia estructurada con el LLM (JSON Mode)
+### 4. Inferencia estructurada con el LLM y Escudo Anti-Alucinación (RF4)
 
-Para evitar errores de sintaxis al guardar las respuestas de la IA en la base de datos, se fuerza al modelo de lenguaje (API de OpenAI o modelo local vía Ollama) a responder con garantía de formato JSON estricto.
+Para garantizar consistencia y evitar errores al guardar las respuestas de la IA en la base de datos, el pipeline utiliza:
 
-Estructura del contrato de salida (output schema):
+1. **Catálogo controlado de problemas (`problem_category`):**
+   El modelo clasifica obligatoriamente en una de las 6 categorías maestras validadas:
+   - `Atención al cliente`
+   - `Tiempos de espera`
+   - `Precios y facturación`
+   - `Calidad del servicio`
+   - `Higiene e instalaciones`
+   - `Otros` (categoría fallback por defecto)
+
+2. **Escudo Anti-Alucinación (Pydantic Shield):**
+   En `app/schemas/ai.py`, el validador `@field_validator("category", mode="before")` intercepta cualquier valor no contemplado en el catálogo oficial (o no-string). En caso de alucinación o categoría inventada:
+   - Mapea de forma segura hacia `"Otros"`.
+   - Emite un log de auditoría con la etiqueta `[LLM_HALLUCINATION_DETECTED]`.
+
+3. **Inversión de dependencias (DIP):**
+   La capa de servicios interactúa únicamente con el contrato abstracto `AIProviderProtocol` (`app/services/protocols.py`). La infraestructura concreta reside en `app/infrastructure/external/llm_client.py` (`LLMClient`), soportando endpoints compatibles con OpenAI (`gpt-4o-mini`) y disponiendo de un **motor heurístico determinista offline** que funciona como fallback automático ante errores de red o en entornos de prueba sin API key.
+
+Estructura del contrato de inferencia (`AIAnalysisResult` / `ai_analysis`):
 
 ```json
 {
-  "problem_category_id": 2,
-  "categoria_nombre": "Atención al cliente",
+  "category": "Atención al cliente",
   "pain_points_summary": "Se identificaron quejas recurrentes sobre demoras en recepción y mala actitud del personal.",
-  "email_subject": "Propuesta para optimizar la atención a pacientes en [Nombre Negocio]",
-  "email_first_paragraph": "Hola, analizamos recientemente las experiencias de sus clientes y notamos oportunidades clave en la gestión de citas..."
+  "email_subject": "Oportunidad de mejora en atención al cliente para Clínica Dental Ejemplo",
+  "email_first_paragraph": "Hola equipo de Clínica Dental Ejemplo, revisando las opiniones de sus clientes en Google Maps, notamos varias menciones constructivas sobre atención al cliente...",
+  "ai_model": "gpt-4o-mini"
 }
 ```
 
-Integración con la base de datos: los campos generados se mapean directamente a las columnas de la tabla ai_analysis (pain_points_summary, email_subject, email_first_paragraph, ai_model) y se vinculan a la categoría correspondiente en problem_category.
+Integración con la base de datos: el repositorio `AIRepository` ejecuta un `UPSERT` idempotente sobre la restricción `ai_analysis.business_id`, vinculando el registro a la categoría correspondiente en `problem_category`.
 
 ## Paso 6 — Cuellos de Botella, Escalado y Resiliencia
 

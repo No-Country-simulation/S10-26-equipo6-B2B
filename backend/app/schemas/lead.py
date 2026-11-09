@@ -5,6 +5,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from app.schemas.ai import AIAnalysisResponse
+from app.schemas.contact import ContactResponse
+
 LEAD_STATUSES = {"NEW", "CONTACTED", "DISCARDED"}
 
 
@@ -21,8 +24,11 @@ class LeadResponse(BaseModel):
     total_reviews: int | None = None
     phone_number: str | None = None
     website: str | None = None
+    email: str | None = None
     lead_status: str
     created_at: datetime
+    ai_analysis: AIAnalysisResponse | None = None
+    contacts: list[ContactResponse] = []
 
 
 class LeadStatusUpdate(BaseModel):

@@ -29,8 +29,19 @@ arquitectura monolítica por capas del backend:
 - **`app/infrastructure/external/google_maps_client.py`**: adaptador principal
   que implementa `ReviewProviderProtocol`, consumido por la capa de servicios
   (`ProspectingService`).
+- **`app/etl/resenas.py`**: punto de entrada CLI y wrapper de diagnóstico / smoke test
+  acordado con QA, delegando en el adaptador de infraestructura y el filtro de servicios.
 
-Todos usan únicamente la biblioteca estándar de Python.
+Todos usan únicamente la biblioteca estándar de Python. La interfaz por consola y
+el smoke test de QA corren desde `backend/` como módulo:
+
+```bash
+cd backend
+python -m app.etl.resenas "Clínica Cotocollao Quito"
+python -m app.etl.resenas "Bocanáriz Santiago" --sort 4
+python -m app.etl.resenas "robstudiofit Talcahuano" --json
+python -m app.etl.resenas --smoke-test
+```
 
 ---
 

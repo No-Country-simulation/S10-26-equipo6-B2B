@@ -7,6 +7,7 @@ concretas de infraestructura (SerpApi, Google Maps, etc.).
 from typing import Protocol, runtime_checkable
 from uuid import UUID
 
+from app.schemas.ai import AIAnalysisResult
 from app.schemas.discovery import Negocio
 from app.schemas.resenas import Resena
 
@@ -40,3 +41,28 @@ class TaskQueueProtocol(Protocol):
     def desencolar(self, timeout: int = 5) -> UUID | None:
         """Extrae el siguiente search_id de la cola (bloqueante hasta timeout)."""
         ...
+
+
+@runtime_checkable
+class AIProviderProtocol(Protocol):
+    """Contrato para cualquier proveedor de inferencia LLM / análisis de reseñas."""
+
+    def analizar_resenas(
+        self,
+        nombre_negocio: str,
+        rubro: str,
+        resenas: list[str],
+    ) -> AIAnalysisResult:
+        """Clasifica las reseñas negativas y genera propuesta de cold email."""
+        ...
+
+
+@runtime_checkable
+class ContactEnricherProtocol(Protocol):
+    """Contrato para cualquier extractor de datos de contacto desde la web del negocio."""
+
+    def extraer_emails(self, url_web: str) -> list[str]:
+        """Explora la web del negocio y devuelve correos electrónicos válidos."""
+        ...
+
+

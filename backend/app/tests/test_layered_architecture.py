@@ -12,7 +12,9 @@ from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_db_session, get_session_factory
 from app.infrastructure.external.google_maps_client import GoogleMapsClient
+from app.infrastructure.external.llm_client import LLMClient
 from app.infrastructure.external.serpapi_client import SerpApiDiscovery
+from app.infrastructure.external.website_scraper import WebsiteScraper
 from app.main import app
 from app.models import (
     AIAnalysis,
@@ -29,7 +31,12 @@ from app.models import (
 from app.repositories.business_repo import BusinessRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.discovery import Negocio
-from app.services.protocols import DiscoveryProviderProtocol, ReviewProviderProtocol
+from app.services.protocols import (
+    AIProviderProtocol,
+    ContactEnricherProtocol,
+    DiscoveryProviderProtocol,
+    ReviewProviderProtocol,
+)
 
 TABLAS_ESPERADAS = {
     "ai_analysis",
@@ -409,6 +416,18 @@ def test_google_maps_client_implementa_el_protocolo_de_resenas() -> None:
     assert isinstance(GoogleMapsClient(), ReviewProviderProtocol)
 
 
+def test_llm_client_implementa_el_protocolo_de_ia() -> None:
+    """DIP: el cliente de IA satisface ``AIProviderProtocol``."""
+    assert isinstance(LLMClient(), AIProviderProtocol)
+
+
+def test_website_scraper_implementa_el_protocolo_de_contactos() -> None:
+    """DIP: el scraper web satisface ``ContactEnricherProtocol``."""
+    assert isinstance(WebsiteScraper(), ContactEnricherProtocol)
+
+
+
+
 def test_cli_etl_resenas_delega_en_google_maps_client() -> None:
     """Soporte QA: ``app.etl.resenas`` es un shim CLI que delega en infrastructure."""
     from app.etl import resenas
@@ -483,3 +502,40 @@ def test_flujo_unidireccional_estricto_de_capas() -> None:
             assert not (mod == "app.api" or mod.startswith("app.api.")), (
                 f"Violación de capas: {rel} en services importa de '{mod}'"
             )
+
+
+def test_servicios_no_ejecutan_consultas_orm_directas() -> None:
+    """Layered Monolith (AC-3): la capa services no debe ejecutar consultas ORM directas.
+
+    Toda consulta de entidades debe delegarse en repositorios.
+    Primitivas prohibidas en services: db.get, db.query, db.scalar, db.scalars, db.execute.
+    """
+    import ast
+    from pathlib import Path
+
+    app_dir = Path(__file__).resolve().parents[1]
+    services_dir = app_dir / "services"
+
+    metodos_prohibidos = {"get", "query", "scalar", "scalars", "execute"}
+
+    for py_file in services_dir.rglob("*.py"):
+        if "__pycache__" in py_file.parts:
+            continue
+        rel = py_file.relative_to(app_dir)
+        contenido = py_file.read_text(encoding="utf-8")
+        arbol = ast.parse(contenido, filename=str(py_file))
+
+        for nodo in ast.walk(arbol):
+            if isinstance(nodo, ast.Call) and isinstance(nodo.func, ast.Attribute):
+                nombre_attr = nodo.func.attr
+                if (
+                    nombre_attr in metodos_prohibidos
+                    and isinstance(nodo.func.value, ast.Name)
+                    and nodo.func.value.id in ("db", "session")
+                ):
+                    pytest.fail(
+                        f"Violación de capas (AC-3): {rel}:{nodo.lineno} ejecuta "
+                        f"consulta directa '{nodo.func.value.id}.{nombre_attr}()'. "
+                        "Debe delegar en un repositorio."
+                    )
+

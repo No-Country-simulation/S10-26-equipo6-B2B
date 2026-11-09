@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     # Infraestructura local via Docker. No hay servicios externos de pago.
     database_url: str = "postgresql+psycopg://repusense:repusense@localhost:5432/repusense"
     redis_url: str = "redis://localhost:6379/0"
+    use_redis_queue: bool = False
 
     api_host: str = "127.0.0.1"
     api_port: int = 8000
@@ -29,6 +30,11 @@ class Settings(BaseSettings):
     discovery_max_paginas: int = 6  # Maps corta a ~120 resultados por query
     discovery_request_interval: float = 2.0  # cortesia entre paginas (segundos)
     discovery_gl: str = "mx"
+
+    # Analisis con IA y Cold Email (RF4). Si openai_api_key esta vacio,
+    # el cliente recurre al motor heuristico determinista offline.
+    openai_api_key: str = ""
+    ai_model: str = "gpt-4o-mini"
 
 
 settings = Settings()
