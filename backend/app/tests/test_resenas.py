@@ -157,3 +157,25 @@ def test_obtener_resenas_sella_scraped_at_una_vez_por_lote(monkeypatch):
     assert cid == "0x000001:0x000002"
     assert salida[0]["scraped_at"] is not None
     assert salida[0]["scraped_at"].tzinfo is UTC
+
+
+def test_google_maps_client_usa_filtro_inyectado_por_dip(monkeypatch):
+    """SRP/DIP: GoogleMapsClient delega el filtrado de negocio en la función inyectada."""
+    from unittest.mock import MagicMock
+
+    from app.infrastructure.external.google_maps_client import GoogleMapsClient
+
+    mock_filtro = MagicMock(return_value=[_resena(1, "filtrada por servicio")])
+
+    def _falso(consulta, orden=2, tamano_pagina=20, max_paginas=6, max_resenas=100):
+        return [_resena(1, "cruda")], "0x000001:0x000002"
+
+    monkeypatch.setattr(resenas, "obtener_resenas", _falso)
+
+    client = GoogleMapsClient(filtro_fn=mock_filtro)
+    resultado = client.obtener_resenas("negocio test", cantidad=3)
+
+    assert len(resultado) == 1
+    assert resultado[0].texto == "filtrada por servicio"
+    mock_filtro.assert_called_once()
+

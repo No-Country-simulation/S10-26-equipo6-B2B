@@ -20,6 +20,7 @@ from app.repositories.search_repo import SearchRepository
 from app.services.ai_service import AIService
 from app.services.enrichment_service import ContactEnrichmentService
 from app.services.prospecting_service import ProspectingService
+from app.services.review_filter import extraer_negativas
 
 
 def get_db_session() -> Generator[Session, None, None]:
@@ -48,6 +49,11 @@ def get_contact_enrichment_service() -> ContactEnrichmentService:
     )
 
 
+def get_maps_client() -> GoogleMapsClient:
+    """Entrega el cliente de Google Maps inyectando la regla de filtrado de negocio (DIP)."""
+    return GoogleMapsClient(filtro_fn=extraer_negativas)
+
+
 def get_prospecting_service(
     db: Annotated[Session, Depends(get_db_session)],
     task_queue: Annotated[RedisTaskQueue, Depends(get_task_queue)],
@@ -55,6 +61,7 @@ def get_prospecting_service(
     enrichment_service: Annotated[
         ContactEnrichmentService, Depends(get_contact_enrichment_service)
     ],
+    maps_client: Annotated[GoogleMapsClient, Depends(get_maps_client)],
 ) -> ProspectingService:
     """Ensambla el servicio con sus repositorios y clientes de infraestructura."""
     return ProspectingService(
@@ -62,7 +69,7 @@ def get_prospecting_service(
         business_repo=BusinessRepository(),
         review_repo=ReviewRepository(),
         serp_client=SerpApiDiscovery(),
-        maps_client=GoogleMapsClient(),
+        maps_client=maps_client,
         task_queue=task_queue,
         ai_service=ai_service,
         enrichment_service=enrichment_service,
