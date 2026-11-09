@@ -14,8 +14,9 @@ Bienvenido al repositorio de **RepuSense**. Antes de emitir cualquier diagnósti
 
 ## 1. Protocolo Anti-Alucinación de Código (Ground Truth Obligatorio)
 * **PROHIBIDO CITAR LÍNEAS O ARCHIVOS SIN LEERLOS:** Nunca cites números de línea o nombres de archivo de memoria. Debes usar herramientas (`grep`, lectura de archivos) para confirmar el contenido exacto y la línea actual.
+* **EVIDENCIA TEXTUAL OBLIGATORIA:** Al señalar un bug, código duplicado o refutar un diagnóstico, debes mostrar el bloque de código literal extraído del archivo como prueba tangible.
 * **PROHIBIDO INVENTAR BUGS O CÓDIGO DUPLICADO:** No asumas que existen validaciones duplicadas ni errores sintácticos sin verificar ambos extremos en el código real.
-* **VERIFICACIÓN DE ENTORNO:** Antes de afirmar que falta una variable o configuración, inspecciona obligatoriamente `.env.example`, `pyproject.toml`, `package.json` y `docker-compose.yml`. (Ej: `REDIS_URL` ya está definido en `.env.example`).
+* **VERIFICACIÓN DE ENTORNO:** Antes de afirmar que falta una variable o configuración, inspecciona obligatoriamente `backend/.env.example`, `frontend/.env.example`, `pyproject.toml`, `package.json` y `docker-compose.yml`. (Ej: `REDIS_URL` ya está definido en `backend/.env.example`).
 * **VERIFICACIÓN DE TESTS:** Antes de afirmar que un módulo o servicio tiene "0% de cobertura", ejecuta o revisa `pytest` y la suite en `backend/app/tests/`.
 
 ---

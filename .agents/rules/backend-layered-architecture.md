@@ -30,4 +30,5 @@ Al interactuar o modificar el código dentro de `backend/`:
 
 6. **Protocolo de Verificación Fáctica (Anti-Alucinación):**
    - Prohibido citar números de línea o reportar código duplicado sin verificar previamente con herramientas de lectura o búsqueda.
+   - Toda auditoría o diagnóstico debe incluir citas textuales literales del código fuente para validar las afirmaciones.
    - Consultar siempre `AGENTS.md` como estándar maestro del repositorio.
