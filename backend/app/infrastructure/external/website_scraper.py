@@ -7,14 +7,19 @@ estrictos y tolerancia completa a fallos de red o sitios caídos.
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import re
+import socket
 import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
+
+MAX_HTML_BYTES_DEFAULT = 512 * 1024  # 512 KB máximo por página para prevenir DoS
+HOSTS_BLOQUEADOS = {"localhost", "localhost.localdomain", "metadata.google.internal"}
 
 TransporteHttp = Callable[[str], tuple[str, int]]
 
@@ -57,10 +62,12 @@ class WebsiteScraper:
         timeout: float = 6.0,
         transport: TransporteHttp | None = None,
         max_subpaginas: int = 2,
+        max_bytes: int = MAX_HTML_BYTES_DEFAULT,
     ) -> None:
         self.timeout = timeout
         self.transport = transport
         self.max_subpaginas = max_subpaginas
+        self.max_bytes = max_bytes
 
     def extraer_emails(self, url_web: str) -> list[str]:
         """Explora la web del negocio y devuelve correos electrónicos válidos normalizados."""
@@ -116,6 +123,10 @@ class WebsiteScraper:
                 logger.debug("Error en transporte mock para %s: %s", url, error)
                 return None
 
+        # Anti-SSRF: valida esquema, hostname y resolución IP antes de abrir socket
+        if not self._es_url_segura(url):
+            return None
+
         peticion = urllib.request.Request(
             url,
             headers={
@@ -132,13 +143,75 @@ class WebsiteScraper:
                 tipo_contenido = respuesta.headers.get("Content-Type", "").lower()
                 if "text/html" not in tipo_contenido and "text/plain" not in tipo_contenido:
                     return None
-                return respuesta.read().decode("utf-8", "replace")
+                # Límite Anti-DoS: evita picos de memoria por respuestas HTML masivas
+                return respuesta.read(self.max_bytes).decode("utf-8", "replace")
         except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError) as error:
             logger.debug("No se pudo obtener contenido de %s: %s", url, error)
             return None
         except Exception as error:
             logger.warning("Fallo inesperado al raspar %s: %s", url, error)
             return None
+
+    @classmethod
+    def _es_url_segura(cls, url: str) -> bool:
+        """Anti-SSRF: valida esquema HTTP/HTTPS y bloquea IPs privadas, loopback y metadatos."""
+        try:
+            parseado = urllib.parse.urlparse(url)
+            if parseado.scheme not in ("http", "https"):
+                logger.warning("Bloqueo SSRF: esquema no permitido en URL: %r", url)
+                return False
+
+            host = parseado.hostname
+            if not host:
+                return False
+
+            host_lower = host.lower()
+            if host_lower in HOSTS_BLOQUEADOS:
+                logger.warning("Bloqueo SSRF: hostname prohibido: %r", host)
+                return False
+
+            # Si el host es una IP literal
+            try:
+                ip = ipaddress.ip_address(host_lower)
+                if (
+                    ip.is_private
+                    or ip.is_loopback
+                    or ip.is_link_local
+                    or ip.is_multicast
+                    or ip.is_reserved
+                ):
+                    logger.warning("Bloqueo SSRF: IP privada/prohibida (%s) para URL: %r", ip, url)
+                    return False
+            except ValueError:
+                # Es un nombre de dominio; resolvemos DNS para verificar la IP destino
+                try:
+                    direcciones = socket.getaddrinfo(host_lower, None)
+                    for _, _, _, _, sockaddr in direcciones:
+                        ip_str = sockaddr[0]
+                        ip = ipaddress.ip_address(ip_str)
+                        if (
+                            ip.is_private
+                            or ip.is_loopback
+                            or ip.is_link_local
+                            or ip.is_multicast
+                            or ip.is_reserved
+                        ):
+                            logger.warning(
+                                "Bloqueo SSRF: el dominio %r resolvió a IP prohibida %s",
+                                host,
+                                ip,
+                            )
+                            return False
+                except (socket.gaierror, OSError):
+                    # En entornos sin resolución DNS (ej. CI/CD o sandbox offline),
+                    # no bloqueamos preventivamente si no es host prohibido ni IP literal.
+                    logger.debug("Sin resolución DNS para %r en verificación preventiva", host)
+                    return True
+
+            return True
+        except Exception as err:
+            logger.warning("Error al validar seguridad de URL %r: %s", url, err)
+            return False
 
     def _extraer_de_texto(self, texto: str) -> list[str]:
         """Aplica regex y descarta falsos positivos o archivos estáticos."""

@@ -99,3 +99,19 @@ def test_worker_captura_error_en_prospeccion_sin_morir() -> None:
     # No debe propagar la excepción
     procesado = procesar_siguiente_tarea(cola, mock_service, mock_session_factory, timeout=1)
     assert procesado == search_id
+
+
+def test_get_task_queue_deshabilitado_por_defecto_y_habilitado_por_flag(monkeypatch) -> None:
+    """AC-5: get_task_queue entrega None por defecto para evitar agujero negro en dev/test."""
+    from app.api.deps import get_task_queue
+    from app.core.config import settings
+
+    # Por defecto use_redis_queue es False -> entrega None
+    monkeypatch.setattr(settings, "use_redis_queue", False)
+    assert get_task_queue() is None
+
+    # Si se activa explícitamente -> entrega RedisTaskQueue
+    monkeypatch.setattr(settings, "use_redis_queue", True)
+    cola = get_task_queue()
+    assert isinstance(cola, RedisTaskQueue)
+

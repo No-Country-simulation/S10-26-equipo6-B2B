@@ -391,3 +391,31 @@ def test_api_analisis_ia_lead_inexistente_da_404(cliente_api_sqlite) -> None:
     random_id = uuid4()
     assert cliente.get(f"/api/v1/leads/{random_id}/ai-analysis").status_code == 404
     assert cliente.post(f"/api/v1/leads/{random_id}/ai-analysis").status_code == 404
+
+
+def test_ai_service_soporta_commit_flag(db_sqlite) -> None:
+    """AC-4: analizar_negocio con commit=False no confirma la transacción."""
+    from app.repositories.business_repo import BusinessRepository
+
+    lead = Business(
+        business_id=uuid4(),
+        name="Clínica IA Transaccional",
+        sector="Salud",
+    )
+    db_sqlite.add(lead)
+    db_sqlite.commit()
+
+    service = AIService(
+        ai_repo=AIRepository(),
+        ai_provider=LLMClient(),
+        business_repo=BusinessRepository(),
+    )
+
+    analisis = service.analizar_negocio(db_sqlite, lead.business_id, commit=False)
+    assert analisis is not None
+
+    db_sqlite.rollback()
+    # Tras el rollback, el análisis no debe estar persistido en la BD
+    recuperado = service.obtener_analisis(db_sqlite, lead.business_id)
+    assert recuperado is None
+

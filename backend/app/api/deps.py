@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.infrastructure.database.session import SessionLocal, get_db
 from app.infrastructure.external.google_maps_client import GoogleMapsClient
 from app.infrastructure.external.llm_client import LLMClient
@@ -28,8 +29,10 @@ def get_db_session() -> Generator[Session, None, None]:
     yield from get_db()
 
 
-def get_task_queue() -> RedisTaskQueue:
-    """Entrega el cliente de cola de tareas sobre Redis."""
+def get_task_queue() -> RedisTaskQueue | None:
+    """Entrega la cola Redis si está habilitada por config (opt-in); si no, None."""
+    if not settings.use_redis_queue:
+        return None
     return RedisTaskQueue()
 
 
@@ -38,6 +41,7 @@ def get_ai_service() -> AIService:
     return AIService(
         ai_repo=AIRepository(),
         ai_provider=LLMClient(),
+        business_repo=BusinessRepository(),
     )
 
 
@@ -46,6 +50,7 @@ def get_contact_enrichment_service() -> ContactEnrichmentService:
     return ContactEnrichmentService(
         contact_repo=ContactRepository(),
         enricher=WebsiteScraper(),
+        business_repo=BusinessRepository(),
     )
 
 
@@ -56,7 +61,7 @@ def get_maps_client() -> GoogleMapsClient:
 
 def get_prospecting_service(
     db: Annotated[Session, Depends(get_db_session)],
-    task_queue: Annotated[RedisTaskQueue, Depends(get_task_queue)],
+    task_queue: Annotated[RedisTaskQueue | None, Depends(get_task_queue)],
     ai_service: Annotated[AIService, Depends(get_ai_service)],
     enrichment_service: Annotated[
         ContactEnrichmentService, Depends(get_contact_enrichment_service)

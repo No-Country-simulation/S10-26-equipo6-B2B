@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     # Infraestructura local via Docker. No hay servicios externos de pago.
     database_url: str = "postgresql+psycopg://repusense:repusense@localhost:5432/repusense"
     redis_url: str = "redis://localhost:6379/0"
+    use_redis_queue: bool = False
 
     api_host: str = "127.0.0.1"
     api_port: int = 8000

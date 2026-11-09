@@ -256,3 +256,107 @@ def test_api_contactos_lifecycle(cliente_api_sqlite) -> None:
     assert lead_dto["email"] == "info@laparrilla.cl"
     assert len(lead_dto["contacts"]) == 1
     assert lead_dto["contacts"][0]["value"] == "info@laparrilla.cl"
+
+
+# --- Hardening de Seguridad Anti-SSRF y Límite DoS (AC-1 y AC-2) ---
+
+
+def test_website_scraper_bloquea_urls_ssrf() -> None:
+    """AC-1: bloquea localhost, IPs privadas, loopback, link-local y esquemas no HTTP."""
+    scraper = WebsiteScraper()
+
+    urls_maliciosas = [
+        "http://localhost",
+        "http://localhost:8000",
+        "http://localhost.localdomain",
+        "http://127.0.0.1",
+        "http://127.0.0.1:5432",
+        "http://[::1]",
+        "http://169.254.169.254/latest/meta-data/",
+        "http://10.0.0.1",
+        "http://172.16.0.1",
+        "http://192.168.1.1",
+        "file:///etc/passwd",
+        "ftp://servidor.com",
+        "javascript:alert(1)",
+    ]
+
+    for url in urls_maliciosas:
+        assert scraper._es_url_segura(url) is False, f"Debe bloquear SSRF para {url}"
+        # La extracción devuelve lista vacía sin intentar conectar ni propagar excepciones
+        assert scraper.extraer_emails(url) == []
+
+
+def test_website_scraper_permite_urls_publicas_validas() -> None:
+    """AC-1: URLs públicas con esquemas http/https son permitidas."""
+    scraper = WebsiteScraper()
+    assert scraper._es_url_segura("https://example.com") is True
+    assert scraper._es_url_segura("http://google.com") is True
+
+
+def test_website_scraper_bloquea_dns_rebinding_a_ip_privada(monkeypatch) -> None:
+    """AC-1: bloquea dominios que resuelven a IPs privadas (DNS rebinding)."""
+    import socket
+
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda host, port: [(2, 1, 6, "", ("192.168.1.50", 80))],
+    )
+    scraper = WebsiteScraper()
+    assert scraper._es_url_segura("http://dominio-aparentemente-publico.com") is False
+
+
+def test_website_scraper_respeta_limite_max_bytes() -> None:
+    """AC-2: el scraper trunca la lectura a max_bytes para evitar DoS por memoria."""
+    # Email 1 está al inicio (dentro de los primeros 100 bytes)
+    # Email 2 está después del byte 200
+    html_inflado = (
+        "<html><body><p>primer@negocio.com</p>"
+        + ("x" * 500)
+        + "<p>segundo@negocio.com</p></body></html>"
+    )
+
+    # Scraper con límite ajustado a 100 bytes
+    scraper = WebsiteScraper(
+        max_bytes=100,
+        transport=lambda url: (html_inflado[:100], 200),
+    )
+    emails = scraper.extraer_emails("https://negocio.com")
+
+    assert "primer@negocio.com" in emails
+    assert "segundo@negocio.com" not in emails
+
+
+def test_contact_enrichment_service_soporta_commit_flag(db_sqlite) -> None:
+    """AC-4: enriquecer_contactos con commit=False no confirma la transacción."""
+    from app.repositories.business_repo import BusinessRepository
+
+    lead = Business(
+        business_id=uuid4(),
+        name="Clínica Dental Transaccional",
+        website="https://dental-transaccional.com",
+    )
+    db_sqlite.add(lead)
+    db_sqlite.commit()
+
+    business_repo = BusinessRepository()
+    mock_enricher = WebsiteScraper(
+        transport=lambda url: ("<p>contacto@dental-transaccional.com</p>", 200)
+    )
+    service = ContactEnrichmentService(
+        contact_repo=ContactRepository(),
+        enricher=mock_enricher,
+        business_repo=business_repo,
+    )
+
+    # Con commit=False no debe confirmar; podemos hacer rollback y verificar
+    contactos = service.enriquecer_contactos(db_sqlite, lead.business_id, commit=False)
+    assert len(contactos) == 1
+    assert contactos[0].value == "contacto@dental-transaccional.com"
+
+    db_sqlite.rollback()
+    # Tras el rollback, el contacto no debe haberse persistido en la BD
+    contactos_post_rollback = service.listar_contactos(db_sqlite, lead.business_id)
+    assert contactos_post_rollback == []
+

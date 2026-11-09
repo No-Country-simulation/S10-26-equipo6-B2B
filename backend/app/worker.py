@@ -44,17 +44,20 @@ def _capturar_senales(signum: int, _frame: FrameType | None) -> None:
 
 def instanciar_servicio(queue: RedisTaskQueue | None = None) -> ProspectingService:
     """Instancia el servicio de prospección con todas sus dependencias."""
+    business_repo = BusinessRepository()
     ai_service = AIService(
         ai_repo=AIRepository(),
         ai_provider=LLMClient(),
+        business_repo=business_repo,
     )
     enrichment_service = ContactEnrichmentService(
         contact_repo=ContactRepository(),
         enricher=WebsiteScraper(),
+        business_repo=business_repo,
     )
     return ProspectingService(
         search_repo=SearchRepository(),
-        business_repo=BusinessRepository(),
+        business_repo=business_repo,
         review_repo=ReviewRepository(),
         serp_client=SerpApiDiscovery(),
         maps_client=GoogleMapsClient(filtro_fn=extraer_negativas),
