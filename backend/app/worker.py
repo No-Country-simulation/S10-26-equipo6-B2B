@@ -24,6 +24,7 @@ from app.repositories.search_repo import SearchRepository
 from app.services.ai_service import AIService
 from app.services.enrichment_service import ContactEnrichmentService
 from app.services.prospecting_service import ProspectingService
+from app.services.review_filter import extraer_negativas
 
 logging.basicConfig(
     level=logging.INFO,
@@ -56,7 +57,7 @@ def instanciar_servicio(queue: RedisTaskQueue | None = None) -> ProspectingServi
         business_repo=BusinessRepository(),
         review_repo=ReviewRepository(),
         serp_client=SerpApiDiscovery(),
-        maps_client=GoogleMapsClient(),
+        maps_client=GoogleMapsClient(filtro_fn=extraer_negativas),
         task_queue=queue or RedisTaskQueue(),
         ai_service=ai_service,
         enrichment_service=enrichment_service,

@@ -116,7 +116,11 @@ def obtener_negativas(consulta: str, cantidad: int = 5) -> list[dict[str, Any]]:
 
 
 class GoogleMapsClient:
-    """Adaptador de la fuente de reseñas que implementa ReviewProviderProtocol."""
+    """Adaptador de la fuente de reseñas que implementa ReviewProviderProtocol.
+
+    Satisface SRP y DIP aceptando opcionalmente una función de filtrado
+    inyectada (por ejemplo, ``app.services.review_filter.extraer_negativas``).
+    """
 
     def __init__(
         self,
@@ -125,11 +129,13 @@ class GoogleMapsClient:
         tamano_pagina: int = 20,
         max_paginas: int = 6,
         max_resenas: int = 100,
+        filtro_fn: Callable[..., list[dict[str, Any]]] | None = None,
     ) -> None:
         self._orden = orden
         self._tamano_pagina = tamano_pagina
         self._max_paginas = max_paginas
         self._max_resenas = max_resenas
+        self._filtro_fn = filtro_fn
 
     def obtener_resenas(
         self,
@@ -146,13 +152,20 @@ class GoogleMapsClient:
             max_paginas=self._max_paginas,
             max_resenas=self._max_resenas,
         )
-        candidatas = [
-            campos
-            for campos in resenas
-            if campos.get("estrellas") is not None
-            and campos["estrellas"] <= settings.etl_negative_rating_max
-            and campos.get("texto")
-        ][:cantidad]
+        if self._filtro_fn is not None:
+            candidatas = self._filtro_fn(
+                resenas,
+                cantidad,
+                max_estrellas=settings.etl_negative_rating_max,
+            )
+        else:
+            candidatas = [
+                campos
+                for campos in resenas
+                if campos.get("estrellas") is not None
+                and campos["estrellas"] <= settings.etl_negative_rating_max
+                and campos.get("texto")
+            ][:cantidad]
         return [Resena(**campos) for campos in candidatas]
 
 
