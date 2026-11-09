@@ -75,13 +75,36 @@ El presente documento define los escenarios de prueba funcionales, de integraci�
 
 ---
 
-### Módulo 3: Base de Datos, Idempotencia e IA (Issues #38, #43 — ERD 9 Tablas)
+### Módulo 3: Base de Datos, Idempotencia y Migraciones (Issue #38, #78 — ERD 9 Tablas)
 
 | ID Caso | Nombre del Caso de Prueba | Entrada (Payload Mock / Parámetros) | Resultado Esperado | Resultado Actual (Evidencia de Ejecución) | Estado | Severidad / Prioridad |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`TC-DB-01`** | Idempotencia por `external_id` y protección de `lead_status` | Re-escaneo de `external_id` existente con `lead_status = 'CONTACTED'` y nuevo rating. | `business_source` actualiza métricas (`UPSERT`); `business.lead_status` se mantiene intacto. | Bloqueado: `backend/migrations/` no contiene los scripts DDL de las 9 tablas SQL. | **`BLOCKED`** | Bloqueador / P1-High |
-| **`TC-DB-02`** | Trazabilidad N:M en `search_business` ante redescubrimientos | Mismo `business_id` detectado en dos búsquedas distintas (`search_A` y `search_B`). | Inserta tupla `(search_B, business_id)` con nuevo `found_at` sin duplicar negocio padre. | Bloqueado: Pendiente esquema relacional del Issue #38. | **`BLOCKED`** | Grave / P2-Medium |
-| **`TC-DB-03`** | Escudo Pydantic ante alucinaciones de categoría LLM | Inferencia del modelo con categoría fuera de catálogo (`"Mala_Atencion"`). | Reasigna determinísticamente a `"Otros"` (ID catalogado), evitando `SQL Error 23503`. | Bloqueado: Pendiente orquestador E2E y modelos relacionales del Issue #43. | **`BLOCKED`** | Crítica / P1-High |
+| **`TC-DB-01`** | Idempotencia por `external_id` y protección de `lead_status` | Re-escaneo de `external_id` existente con `lead_status = 'CONTACTED'` y nuevo rating. | `business_source` actualiza métricas (`UPSERT`); `business.lead_status` se mantiene intacto. | Validado en `test_layered_architecture.py::test_upsert_from_discovery_es_idempotente`. | **`PASSED`** | Bloqueador / P1-High |
+| **`TC-DB-02`** | Creación y Restricciones de las 9 Tablas SQL | Ejecución de script DDL `backend/migrations/0001_init.sql` sobre motor relacional. | Crea tablas, claves foráneas, tipos UUID y restricciones únicas sin errores de sintaxis. | Validado en `test_migrations_sql.py::test_migracion_crea_todas_las_tablas`. | **`PASSED`** | Bloqueador / P1-High |
+
+---
+
+### Módulo 4: Endpoints de la API REST y Flujos Comerciales (Issue #25, #73, #76)
+
+| ID Caso | Nombre del Caso de Prueba | Qué situación probamos | Lo que esperamos que haga el sistema | Estado | Prioridad |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| **`TC-API-BUSQ-01`** | Iniciar búsqueda válida | El usuario escribe sector y ciudad correctos (ej: Restaurantes en Medellín). | Inicia la búsqueda de inmediato y entrega estado pendiente sin colapsar la pantalla. | ✅ **`PASSED`** | Crítica |
+| **`TC-API-BUSQ-02`** | Rechazar calificación mayor a 5 estrellas | El usuario intenta enviar una calificación de 5.1 estrellas. | El sistema rechaza el valor y avisa amablemente que el límite máximo es 5 estrellas. | ✅ **`PASSED`** | Media |
+| **`TC-API-BUSQ-03`** | Rechazar calificaciones negativas | El usuario intenta enviar un valor negativo (-0.5 estrellas). | El sistema no permite notas negativas y avisa el error. | ✅ **`PASSED`** | Media |
+| **`TC-API-BUSQ-04`** | Rechazar mínimo de reseñas negativo | Se ingresa -1 en cantidad mínima de opiniones. | El sistema rechaza números negativos para las reseñas. | ✅ **`PASSED`** | Media |
+| **`TC-API-BUSQ-05`** | Protegerse ante datos vacíos | Se intenta buscar dejando el sector o la ciudad en blanco. | El sistema avisa que son datos obligatorios y no realiza la búsqueda vacía. | ✅ **`PASSED`** | Alta |
+| **`TC-API-SBUSQ-01`** | Consultar búsqueda inexistente | Se pide el estado de una búsqueda con un código que no existe en el sistema. | Responde claramente que la búsqueda no fue encontrada. | ✅ **`PASSED`** | Alta |
+| **`TC-API-SBUSQ-02`** | Protegerse ante códigos inválidos | Se envía un texto con letras al azar en lugar del código de búsqueda. | El sistema detecta el formato incorrecto y avisa sin caerse. | ✅ **`PASSED`** | Media |
+| **`TC-API-LEADS-01`** | Listar clientes con paginación | El vendedor pide ver los clientes encontrados divididos en páginas. | Entrega la lista ordenada, calculando bien el número de páginas y si hay más resultados. | ✅ **`PASSED`** | Crítica |
+| **`TC-API-LEADS-02`** | Filtrar clientes por ciudad | El vendedor selecciona ver únicamente los clientes de una ciudad (ej. Quito). | La tabla solo muestra los clientes que pertenecen a esa ciudad. | ✅ **`PASSED`** | Alta |
+| **`TC-API-LEADS-03`** | Evitar sobrecarga en la pantalla | El usuario intenta pedir más de 100 clientes de golpe (ej. 101). | El sistema no lo permite para cuidar el rendimiento y evitar que la pantalla se congele. | ✅ **`PASSED`** | Media |
+| **`TC-API-PATCH-01`** | Marcar cliente como Contactado | El vendedor habla con el cliente y cambia su estado a 'Contactado'. | El sistema actualiza el estado a `CONTACTED` y registra la fecha de contacto. | ✅ **`PASSED`** | Crítica |
+| **`TC-API-PATCH-02`** | Aceptar estado en minúsculas | El usuario escribe el estado en minúsculas (ej: 'discarded'). | El sistema lo entiende perfectamente y lo guarda normalizado en mayúsculas (`DISCARDED`). | ✅ **`PASSED`** | Media |
+| **`TC-API-PATCH-03`** | Rechazar estados inventados | Se intenta poner un estado que no existe en el proceso comercial. | El sistema rechaza el texto y avisa cuáles son los únicos estados válidos permitidos. | ✅ **`PASSED`** | Alta |
+| **`TC-API-AI-01`** | Consultar análisis de IA no generado | Se pide ver el correo de un cliente que todavía no ha sido analizado por la IA. | Responde de forma clara que el análisis de IA aún no ha sido generado. | ✅ **`PASSED`** | Alta |
+| **`TC-API-AI-02`** | Generar correo en frío con IA | La IA lee las quejas del negocio y prepara el borrador para el vendedor. | Redacta el asunto, el primer párrafo personalizado y clasifica la queja en categorías reales. | ✅ **`PASSED`** | Crítica |
+| **`TC-API-CONT-01`** | Listar contactos de un lead nuevo | Se consultan los medios de contacto de un cliente recién descubierto. | Entrega la lista vacía de forma segura mientras el scraper busca en la web. | ✅ **`PASSED`** | Media |
+| **`TC-API-CONT-02`** | Cliente sin página web | Se intenta buscar correos de un negocio que no tiene sitio web registrado. | El buscador no revienta y responde con lista vacía de manera tranquila. | ✅ **`PASSED`** | Alta |
 
 ---
 
