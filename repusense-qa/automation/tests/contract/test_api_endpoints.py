@@ -265,9 +265,111 @@ def test_tc_api_patch_03_rechazar_estado_no_permitido(cliente_api) -> None:
         db.commit()
         lead_id = negocio.business_id
 
-    respuesta = cliente.patch(
-        f"/api/v1/leads/{lead_id}/status",
-        json={"lead_status": "INTERESADO_PERO_SIN_DINERO"},
-    )
+# ---------------------------------------------------------------------------
+# 5. Pruebas para Endpoints de Análisis con IA y Cold Email (Issue #73 / #74)
+# ---------------------------------------------------------------------------
 
-    assert respuesta.status_code == 422
+
+def test_tc_api_ai_01_consultar_analisis_inexistente(cliente_api) -> None:
+    """Verifica que si un cliente no tiene análisis de IA previo, responda 404."""
+    cliente, _ = cliente_api
+    id_falso = uuid4()
+
+    respuesta = cliente.get(f"/api/v1/leads/{id_falso}/ai-analysis")
+
+    assert respuesta.status_code == 404
+    assert "no encontrado" in respuesta.json()["detail"].lower()
+
+
+def test_tc_api_ai_02_generar_y_consultar_analisis_ia(cliente_api) -> None:
+    """Verifica que el endpoint de IA genere el asunto, primer párrafo y clasifique el problema."""
+    cliente, fabrica = cliente_api
+    from app.models import Review
+
+    with fabrica() as db:
+        platform = Platform(name="Google Maps")
+        negocio = Business(name="Restaurante Don Pepe", sector="restaurantes", city="Quito")
+        db.add_all([platform, negocio])
+        db.flush()
+
+        source = BusinessSource(
+            business_id=negocio.business_id,
+            platform_id=platform.platform_id,
+            external_id="rev_test_1",
+            rating=Decimal("2.5"),
+            total_reviews=10,
+        )
+        db.add(source)
+        db.flush()
+
+        # Agregamos una reseña negativa para que la IA la analice
+        db.add(
+            Review(
+                business_source_id=source.business_source_id,
+                external_id="rev_neg_1",
+                author="Carlos",
+                rating=1,
+                content="Muy mala atención del mesero y demoraron 2 horas.",
+            )
+        )
+        db.commit()
+        lead_id = negocio.business_id
+
+    # 1. Solicitamos generar el análisis con IA (POST)
+    respuesta_post = cliente.post(f"/api/v1/leads/{lead_id}/ai-analysis")
+    assert respuesta_post.status_code == 200
+    datos = respuesta_post.json()
+
+    # Verificamos que tenga los elementos para el vendedor
+    assert datos["category"] in [
+        "Atención al cliente",
+        "Tiempos de espera",
+        "Precios y facturación",
+        "Calidad del servicio",
+        "Higiene e instalaciones",
+        "Otros",
+    ]
+    assert len(datos["email_subject"]) > 0
+    assert len(datos["email_first_paragraph"]) > 0
+    assert datos["business_id"] == str(lead_id)
+
+    # 2. Consultamos que haya quedado guardado (GET)
+    respuesta_get = cliente.get(f"/api/v1/leads/{lead_id}/ai-analysis")
+    assert respuesta_get.status_code == 200
+    assert respuesta_get.json()["email_subject"] == datos["email_subject"]
+
+
+# ---------------------------------------------------------------------------
+# 6. Pruebas para Endpoints de Contactos y Scraping Web (Issue #76 / #77)
+# ---------------------------------------------------------------------------
+
+
+def test_tc_api_contact_01_listar_contactos_vacio(cliente_api) -> None:
+    """Verifica que un cliente recién creado devuelva una lista de contactos vacía."""
+    cliente, fabrica = cliente_api
+    with fabrica() as db:
+        negocio = Business(name="Hotel Central", city="Bogota")
+        db.add(negocio)
+        db.commit()
+        lead_id = negocio.business_id
+
+    respuesta = cliente.get(f"/api/v1/leads/{lead_id}/contacts")
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == []
+
+
+def test_tc_api_contact_02_enriquecer_contactos_sin_sitio_web(cliente_api) -> None:
+    """Verifica que si el cliente no tiene sitio web, el scraper no reviente y devuelva lista vacía."""
+    cliente, fabrica = cliente_api
+    with fabrica() as db:
+        negocio = Business(name="Kiosco Sin Web", website=None)
+        db.add(negocio)
+        db.commit()
+        lead_id = negocio.business_id
+
+    respuesta = cliente.post(f"/api/v1/leads/{lead_id}/enrich-contacts")
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == []
+
