@@ -7,8 +7,9 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.models.entities import AIAnalysis, Business
+from app.models.entities import AIAnalysis
 from app.repositories.ai_repo import AIRepository
+from app.repositories.business_repo import BusinessRepository
 from app.schemas.ai import CATEGORIA_FALLBACK
 from app.services.protocols import AIProviderProtocol
 
@@ -22,17 +23,24 @@ class AIService:
         self,
         ai_repo: AIRepository,
         ai_provider: AIProviderProtocol,
+        business_repo: BusinessRepository | None = None,
     ) -> None:
         self.ai_repo = ai_repo
         self.ai_provider = ai_provider
+        self.business_repo = business_repo or BusinessRepository()
 
     def obtener_analisis(self, db: Session, business_id: UUID) -> AIAnalysis | None:
         """Recupera el análisis de IA existente para un negocio o ``None``."""
         return self.ai_repo.get_by_business_id(db, business_id)
 
-    def analizar_negocio(self, db: Session, business_id: UUID) -> AIAnalysis | None:
+    def analizar_negocio(
+        self,
+        db: Session,
+        business_id: UUID,
+        commit: bool = True,
+    ) -> AIAnalysis | None:
         """Ejecuta el análisis sobre las reseñas del lead y persiste el resultado."""
-        business = db.get(Business, business_id)
+        business = self.business_repo.get_by_id(db, business_id)
         if business is None:
             return None
 
@@ -63,5 +71,6 @@ class AIService:
             email_first_paragraph=resultado.email_first_paragraph,
             ai_model=resultado.ai_model,
         )
-        db.commit()
+        if commit:
+            db.commit()
         return analisis

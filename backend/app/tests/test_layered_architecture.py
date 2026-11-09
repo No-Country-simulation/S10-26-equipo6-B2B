@@ -502,3 +502,40 @@ def test_flujo_unidireccional_estricto_de_capas() -> None:
             assert not (mod == "app.api" or mod.startswith("app.api.")), (
                 f"Violación de capas: {rel} en services importa de '{mod}'"
             )
+
+
+def test_servicios_no_ejecutan_consultas_orm_directas() -> None:
+    """Layered Monolith (AC-3): la capa services no debe ejecutar consultas ORM directas.
+
+    Toda consulta de entidades debe delegarse en repositorios.
+    Primitivas prohibidas en services: db.get, db.query, db.scalar, db.scalars, db.execute.
+    """
+    import ast
+    from pathlib import Path
+
+    app_dir = Path(__file__).resolve().parents[1]
+    services_dir = app_dir / "services"
+
+    metodos_prohibidos = {"get", "query", "scalar", "scalars", "execute"}
+
+    for py_file in services_dir.rglob("*.py"):
+        if "__pycache__" in py_file.parts:
+            continue
+        rel = py_file.relative_to(app_dir)
+        contenido = py_file.read_text(encoding="utf-8")
+        arbol = ast.parse(contenido, filename=str(py_file))
+
+        for nodo in ast.walk(arbol):
+            if isinstance(nodo, ast.Call) and isinstance(nodo.func, ast.Attribute):
+                nombre_attr = nodo.func.attr
+                if (
+                    nombre_attr in metodos_prohibidos
+                    and isinstance(nodo.func.value, ast.Name)
+                    and nodo.func.value.id in ("db", "session")
+                ):
+                    pytest.fail(
+                        f"Violación de capas (AC-3): {rel}:{nodo.lineno} ejecuta "
+                        f"consulta directa '{nodo.func.value.id}.{nombre_attr}()'. "
+                        "Debe delegar en un repositorio."
+                    )
+

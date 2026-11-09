@@ -108,11 +108,10 @@ class ProspectingService:
                         source.business_source_id,
                         resenas,
                     )
-                db.commit()
 
                 if self.ai_service is not None:
                     try:
-                        self.ai_service.analizar_negocio(db, source.business_id)
+                        self.ai_service.analizar_negocio(db, source.business_id, commit=False)
                     except Exception as error:
                         logger.warning(
                             "Análisis con IA no pudo completarse para %s: %s",
@@ -122,13 +121,18 @@ class ProspectingService:
 
                 if self.enrichment_service is not None and negocio.website:
                     try:
-                        self.enrichment_service.enriquecer_contactos(db, source.business_id)
+                        self.enrichment_service.enriquecer_contactos(
+                            db, source.business_id, commit=False
+                        )
                     except Exception as error:
                         logger.warning(
                             "Enriquecimiento de contactos falló para %s: %s",
                             source.business_id,
                             error,
                         )
+
+                # Confirmación transaccional consolidada por negocio
+                db.commit()
 
             self.search_repo.update_status(db, search_id, "COMPLETED")
             db.commit()
