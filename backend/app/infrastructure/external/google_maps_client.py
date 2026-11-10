@@ -3,7 +3,7 @@
 Implementa ``ReviewProviderProtocol`` delegando en submódulos SRP:
 - ``google_maps.protocol``: transporte HTTP y formato RPC GetLocalBoqProxy.
 - ``google_maps.parser``: decodificación HTML y mapeo posicional del payload.
-- ``app.services.review_filter``: regla de filtrado de reseñas negativas.
+- ``app.core.review_rules``: regla de filtrado de reseñas negativas (RF2).
 """
 
 import time
@@ -11,6 +11,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
+from app.core.review_rules import seleccionar_negativas
 from app.infrastructure.external.google_maps import parser, protocol
 from app.infrastructure.external.google_maps.parser import (
     _parsear_resenas,
@@ -106,13 +107,7 @@ def obtener_negativas(consulta: str, cantidad: int = 5) -> list[dict[str, Any]]:
     from app.core.config import settings
 
     resenas, _cid = obtener_resenas(consulta)
-    return [
-        r
-        for r in resenas
-        if r.get("estrellas") is not None
-        and r["estrellas"] <= settings.etl_negative_rating_max
-        and r.get("texto")
-    ][:cantidad]
+    return seleccionar_negativas(resenas, cantidad, settings.etl_negative_rating_max)
 
 
 class GoogleMapsClient:
@@ -159,13 +154,11 @@ class GoogleMapsClient:
                 max_estrellas=settings.etl_negative_rating_max,
             )
         else:
-            candidatas = [
-                campos
-                for campos in resenas
-                if campos.get("estrellas") is not None
-                and campos["estrellas"] <= settings.etl_negative_rating_max
-                and campos.get("texto")
-            ][:cantidad]
+            candidatas = seleccionar_negativas(
+                resenas,
+                cantidad,
+                settings.etl_negative_rating_max,
+            )
         return [Resena(**campos) for campos in candidatas]
 
 
