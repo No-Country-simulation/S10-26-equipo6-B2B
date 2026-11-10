@@ -21,6 +21,16 @@ logger = logging.getLogger(__name__)
 MAX_HTML_BYTES_DEFAULT = 512 * 1024  # 512 KB máximo por página para prevenir DoS
 HOSTS_BLOQUEADOS = {"localhost", "localhost.localdomain", "metadata.google.internal"}
 
+
+def _ip_bloqueada(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Anti-SSRF: bloquea cualquier IP no global (privada, CGNAT, loopback, etc.)
+
+    Se usa ``is_global`` en lugar de la cadena is_private/is_loopback/... porque
+    ``is_global`` es False tambien para rangos como 100.64.0.0/10 (CGNAT), que
+    ``is_private`` no cubre. El multicast es global=True, por eso se excluye aparte.
+    """
+    return not ip.is_global or ip.is_multicast
+
 TransporteHttp = Callable[[str], tuple[str, int]]
 
 EMAIL_REGEX = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b")
@@ -173,14 +183,12 @@ class WebsiteScraper:
             # Si el host es una IP literal
             try:
                 ip = ipaddress.ip_address(host_lower)
-                if (
-                    ip.is_private
-                    or ip.is_loopback
-                    or ip.is_link_local
-                    or ip.is_multicast
-                    or ip.is_reserved
-                ):
-                    logger.warning("Bloqueo SSRF: IP privada/prohibida (%s) para URL: %r", ip, url)
+                if _ip_bloqueada(ip):
+                    logger.warning(
+                        "Bloqueo SSRF: IP no publica/prohibida (%s) para URL: %r",
+                        ip,
+                        url,
+                    )
                     return False
             except ValueError:
                 # Es un nombre de dominio; resolvemos DNS para verificar la IP destino
@@ -189,13 +197,7 @@ class WebsiteScraper:
                     for _, _, _, _, sockaddr in direcciones:
                         ip_str = sockaddr[0]
                         ip = ipaddress.ip_address(ip_str)
-                        if (
-                            ip.is_private
-                            or ip.is_loopback
-                            or ip.is_link_local
-                            or ip.is_multicast
-                            or ip.is_reserved
-                        ):
+                        if _ip_bloqueada(ip):
                             logger.warning(
                                 "Bloqueo SSRF: el dominio %r resolvió a IP prohibida %s",
                                 host,
@@ -203,10 +205,13 @@ class WebsiteScraper:
                             )
                             return False
                 except (socket.gaierror, OSError):
-                    # En entornos sin resolución DNS (ej. CI/CD o sandbox offline),
-                    # no bloqueamos preventivamente si no es host prohibido ni IP literal.
-                    logger.debug("Sin resolución DNS para %r en verificación preventiva", host)
-                    return True
+                    # Sin DNS no hay forma de garantizar que el destino sea publico:
+                    # fallamos cerrado (el scrape posterior fallaria igual sin DNS).
+                    logger.warning(
+                        "Bloqueo SSRF: sin resolución DNS para %r; validación fallada cerrada",
+                        host,
+                    )
+                    return False
 
             return True
         except Exception as err:

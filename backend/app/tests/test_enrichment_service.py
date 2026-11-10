@@ -287,11 +287,40 @@ def test_website_scraper_bloquea_urls_ssrf() -> None:
         assert scraper.extraer_emails(url) == []
 
 
-def test_website_scraper_permite_urls_publicas_validas() -> None:
-    """AC-1: URLs públicas con esquemas http/https son permitidas."""
+def test_website_scraper_permite_urls_publicas_validas(monkeypatch) -> None:
+    """AC-1: URLs públicas con esquemas http/https son permitidas.
+
+    El DNS se mockea para que el test sea deterministico y no dependa de
+    resolucion real (funciona igual en un sandbox offline).
+    """
+    import socket
+
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda host, port: [(2, 1, 6, "", ("93.184.216.34", 80))],
+    )
     scraper = WebsiteScraper()
     assert scraper._es_url_segura("https://example.com") is True
     assert scraper._es_url_segura("http://google.com") is True
+
+
+def test_website_scraper_bloquea_ip_cgnat() -> None:
+    """AC-1: las IPs de rango compartido (CGNAT 100.64.0.0/10) se bloquean."""
+    scraper = WebsiteScraper()
+    assert scraper._es_url_segura("http://100.64.0.1") is False
+
+
+def test_website_scraper_falla_cerrado_sin_dns(monkeypatch) -> None:
+    """AC-1: si el DNS no resuelve, la validacion falla cerrado (no fail-open)."""
+    import socket
+
+    def _sin_dns(host, port):
+        raise socket.gaierror("sin resolucion dns")
+
+    monkeypatch.setattr(socket, "getaddrinfo", _sin_dns)
+    scraper = WebsiteScraper()
+    assert scraper._es_url_segura("http://dominio-publico.com") is False
 
 
 def test_website_scraper_bloquea_dns_rebinding_a_ip_privada(monkeypatch) -> None:
