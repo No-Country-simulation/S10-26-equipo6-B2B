@@ -3,11 +3,10 @@
 Trazabilidad: repusense-qa/docs/02_design/test-scenarios.md (TC-EXTR-01 a TC-EXTR-03)
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-
 from app.etl.resenas import (
     ErrorRecoleccion,
     extraer_negativas,
@@ -101,7 +100,7 @@ def test_tc_extr_05_resiliencia_epoch_ms_a_utc() -> None:
     # 1700000000000 ms = 2023-11-14 22:13:20 UTC
     dt = parsear_epoch_ms("1700000000000")
     assert isinstance(dt, datetime)
-    assert dt == datetime(2023, 11, 14, 22, 13, 20, tzinfo=timezone.utc)
+    assert dt == datetime(2023, 11, 14, 22, 13, 20, tzinfo=UTC)
 
     # Casos defensivos de Google / payload sucio
     assert parsear_epoch_ms(None) is None
@@ -140,5 +139,5 @@ def test_tc_extr_06_estampado_scraped_at_por_lote(monkeypatch: pytest.MonkeyPatc
     assert isinstance(lote[0]["scraped_at"], datetime)
     assert isinstance(lote[1]["scraped_at"], datetime)
     assert lote[0]["scraped_at"] == lote[1]["scraped_at"]
-    assert lote[0]["fecha_absoluta"] == datetime(2023, 11, 14, 22, 13, 20, tzinfo=timezone.utc)
+    assert lote[0]["fecha_absoluta"] == datetime(2023, 11, 14, 22, 13, 20, tzinfo=UTC)
 

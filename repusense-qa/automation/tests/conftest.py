@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 from app.core.config import settings
 
 GOLDEN_DIR = Path(__file__).resolve().parent.parent / "data" / "golden_datasets"

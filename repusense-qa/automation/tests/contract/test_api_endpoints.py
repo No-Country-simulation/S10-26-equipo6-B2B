@@ -13,14 +13,13 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
+from app.api.deps import get_db_session, get_session_factory
+from app.main import app
+from app.models import Base, Business, BusinessSource, Platform
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-
-from app.api.deps import get_db_session, get_session_factory
-from app.main import app
-from app.models import Base, Business, BusinessSource, Platform, Search
 
 
 @pytest.fixture()
@@ -258,12 +257,11 @@ def test_tc_api_patch_02_actualizar_estado_acepta_minusculas(cliente_api) -> Non
 
 def test_tc_api_patch_03_rechazar_estado_no_permitido(cliente_api) -> None:
     """Verifica que se rechacen estados que no existen en el catálogo comercial."""
-    cliente, fabrica = cliente_api
+    _cliente, fabrica = cliente_api
     with fabrica() as db:
         negocio = Business(name="Farmacia", lead_status="NEW")
         db.add(negocio)
         db.commit()
-        lead_id = negocio.business_id
 
 # ---------------------------------------------------------------------------
 # 5. Pruebas para Endpoints de Análisis con IA y Cold Email (Issue #73 / #74)

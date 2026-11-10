@@ -1,13 +1,12 @@
 """Pruebas de contrato sobre los esquemas Pydantic de Discovery (#40) y Resenas (#36)."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-from pydantic import ValidationError
-
 from app.core.config import Settings
 from app.schemas.discovery import Negocio
 from app.schemas.resenas import Resena
+from pydantic import ValidationError
 
 
 def test_contrato_configuracion_base_issue_28() -> None:
@@ -44,8 +43,8 @@ def test_contrato_negocio_rechaza_sin_place_id() -> None:
 
 def test_contrato_resena_valida_rango_estrellas_y_nuevos_campos_issue_52() -> None:
     """El contrato de Resena restringe estrellas al intervalo [1, 5] y valida fecha_absoluta / scraped_at."""
-    momento_scraped = datetime.now(timezone.utc)
-    momento_revisado = datetime(2026, 10, 20, 15, 30, tzinfo=timezone.utc)
+    momento_scraped = datetime.now(UTC)
+    momento_revisado = datetime(2026, 10, 20, 15, 30, tzinfo=UTC)
 
     resena = Resena(
         id="r1",

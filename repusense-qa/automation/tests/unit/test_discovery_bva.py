@@ -11,7 +11,10 @@ try:
     from app.providers.discovery import DiscoveryError, SerpApiDiscovery
 except ModuleNotFoundError:
     # Soporte para la nueva arquitectura por capas (backend/app/infrastructure/external)
-    from app.infrastructure.external.serpapi_client import DiscoveryError, SerpApiDiscovery
+    from app.infrastructure.external.serpapi_client import (
+        DiscoveryError,
+        SerpApiDiscovery,
+    )
 
 
 def _mock_serpapi(resultados: list[dict], next_url: str | None = None) -> str:
