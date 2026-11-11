@@ -1,18 +1,30 @@
 import { useState } from 'react'
 import './App.css'
+import { Sidebar } from './components/Sidebar'
+import { Navbar } from './components/Navbar';
 
 function App() {
-  const [count, setCount] = useState(0)
 
   return (
     <>
-      <div className="flex flex-col h-screen items-center justify-center bg-gray-100 gap-2">
-        <h1 className="text-4xl font-bold text-green-600">
-          ¡Tailwind funciona en RepuSense!
-        </h1>
-        <button onClick={() => setCount(count => count + 1)} className='bg-fuchsia-600 px-5 py-2.5 rounded-md text-zinc-100'>
-          El count tiene un valor de {count};
-        </button>
+      <div className="flex h-screen bg-white">
+        <Sidebar />
+        <div className='flex-1 flex flex-col min-w-0'>
+          <Navbar />
+
+          <main className="flex-1 p-8 overflow-y-auto">
+            <div className="mb-6 flex justify-between items-end">
+              <div>
+                <h1 className="text-2xl font-bold text-content-main mb-1">Estadística general</h1>
+                <p className="text-sm text-content-muted">Última actualización 10/11/2026</p>
+              </div>
+            </div>
+
+            <div className="border-4 border-dashed border-gray-200 rounded-lg h-96 flex items-center justify-center text-gray-400">
+              Dashboard
+            </div>
+          </main>
+        </div>
       </div>
     </>
   )

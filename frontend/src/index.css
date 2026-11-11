@@ -6,4 +6,6 @@
   --color-activo: #a7f3d0; /* Texto e ícono del menú seleccionado. */
   --color-enlaces: #6ee7b7; /* Enlaces e iconos destacados */
   --color-calificaciones: #f4bc47 /* Estrellas de las reseñas y del negocio. */;
+  --color-text-activo: #187b68;
+  --color-hover-activo: #e9f4ef;
 }
