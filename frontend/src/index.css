@@ -8,4 +8,30 @@
   --color-calificaciones: #f4bc47 /* Estrellas de las reseñas y del negocio. */;
   --color-text-activo: #187b68;
   --color-hover-activo: #e9f4ef;
+  /* Colores principales de marca (Verde esmeralda de RepuSense) */
+  --color-brand: #10b981;
+  --color-brand-light: #d1fae5;
+  --color-brand-dark: #047857;
+
+  /* Colores estructurales de fondo y tarjetas */
+  --color-layout-background: #f7f9fc;
+  --color-layout-surface: #ffffff;
+
+  /* Colores tipográficos */
+  --color-content-main: #111827;
+  --color-content-muted: #6b7280;
+}
+
+/* Estilos base globales */
+@layer base {
+  body {
+    background-color: var(--color-layout-background);
+    color: var(--color-content-main);
+    font-family:
+      "Inter",
+      system-ui,
+      -apple-system,
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
 }
