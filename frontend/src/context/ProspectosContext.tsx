@@ -1,14 +1,7 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ALL_MOCK_LEADS } from '../utils/mockData';
 import { type Lead } from '../utils/mockData';
-
-interface LeadsContextType {
-    leads: Lead[];
-    saveLeadToProspects: (id: string) => void;
-    updateLeadStatus: (id: string, newStatus: Lead['status']) => void;
-}
-
-const ProspectosContext = createContext<LeadsContextType | undefined>(undefined);
+import { ProspectosContext } from '../hooks/useLeads';
 
 export const LeadsProvider = ({ children }: { children: ReactNode }) => {
     const [leads, setLeads] = useState<Lead[]>(ALL_MOCK_LEADS);
@@ -40,13 +33,4 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
             {children}
         </ProspectosContext.Provider>
     );
-};
-
-// Hook personalizado para consumir el contexto fácilmente
-export const useLeads = () => {
-    const context = useContext(ProspectosContext);
-    if (!context) {
-        throw new Error('useLeads debe usarse dentro de un LeadsProvider');
-    }
-    return context;
 };

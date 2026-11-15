@@ -1,13 +1,12 @@
-import { Link, NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 
 import {
     AlignStartVertical, LayoutDashboard,
     Search,
     Users,
-    Briefcase,
     History,
     Settings,
-    HelpCircle
+
 } from 'lucide-react';
 
 interface MenuItem {

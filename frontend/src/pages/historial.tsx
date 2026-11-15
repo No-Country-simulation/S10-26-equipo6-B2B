@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Search, Mail, Calendar, ExternalLink, RotateCcw, Archive } from 'lucide-react';
-import { useLeads } from '../context/ProspectosContext';
+import { useLeads } from '../hooks/useLeads';
 import { useNavigate } from 'react-router-dom';
 
 export const Historial = () => {

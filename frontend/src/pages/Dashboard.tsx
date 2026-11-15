@@ -1,12 +1,13 @@
 import { Card } from '../components/Card';
 import { RubrosChart } from '../components/RubrosChart';
 import { PosiblesProspectos } from '../components/PosiblesProspectos';
-import { useLeads } from '../context/ProspectosContext';
+import { useLeads } from '../hooks/useLeads';
+import { useState } from 'react';
 
 export const Dashboard = () => {
 
     const { leads } = useLeads();
-    const fecha = new Date().toLocaleDateString('es-ES');
+    const [fecha] = useState(() => new Date().toLocaleDateString('es-ES'));
 
     // Total de leads en el sistema
     const totalConsultados = leads.length;

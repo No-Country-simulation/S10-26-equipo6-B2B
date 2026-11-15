@@ -46,9 +46,7 @@ export const SearchLeads = () => {
                                 placeholder="Ej. Mexico, Puebla..."
                                 value={ubicacion}
                                 onChange={(e) => setUbicacion(e.target.value)}
-                                className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-brand-light focus:border-brand transition-all">
-
-                            </input>
+                                className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-brand-light focus:border-brand transition-all" />
                         </div>
                     </div>
 

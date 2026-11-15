@@ -1,6 +1,6 @@
 import { Info } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { useLeads } from '../context/ProspectosContext'; // 1. Importamos nuestro contexto global
+import { useLeads } from '../hooks/useLeads';// 1. Importamos nuestro contexto global
 
 interface RubroData {
     name: string;

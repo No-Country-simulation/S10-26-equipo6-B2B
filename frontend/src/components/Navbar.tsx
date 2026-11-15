@@ -1,4 +1,4 @@
-import { Search, Bell, ChevronRight } from 'lucide-react';
+import { Search, ChevronRight } from 'lucide-react';
 
 export const Navbar = () => {
     return (

@@ -1,6 +1,6 @@
 import { ExternalLink, Download, Clock, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useLeads } from '../context/ProspectosContext';
+import { useLeads } from '../hooks/useLeads';
 
 export const ProspectosEncontrados = () => {
     const navigate = useNavigate();

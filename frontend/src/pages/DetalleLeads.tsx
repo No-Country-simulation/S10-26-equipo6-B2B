@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useLeads } from '../context/ProspectosContext';
+import { useLeads } from '../hooks/useLeads';
 import { type Lead } from '../utils/mockData';
 
 import {
@@ -34,10 +34,13 @@ export const DetalleLeads = () => {
     const [body, setBody] = useState(lead.draftBody);
     const [copied, setCopied] = useState(false);
 
-    useEffect(() => {
+    // Sincronizamos el borrador si cambia el lead seleccionado sin usar useEffect
+    const [prevLeadId, setPrevLeadId] = useState(lead.id);
+    if (lead.id !== prevLeadId) {
+        setPrevLeadId(lead.id);
         setSubject(lead.draftSubject);
         setBody(lead.draftBody);
-    }, [lead]);
+    }
 
     // Función para copiar el correo al portapapeles
     const handleCopyDraft = () => {
@@ -81,7 +84,6 @@ export const DetalleLeads = () => {
                     </div>
                 </div>
 
-                {/* 👇 RENDERIZADO CONDICIONAL: Botón "Guardar Lead" vs Selector de Estatus */}
                 <div className="w-full sm:w-64 flex flex-col items-start sm:items-end">
                     {!lead.isSaved ? (
                         <div className="w-full">
@@ -162,6 +164,7 @@ export const DetalleLeads = () => {
                     </div>
                 </div>
 
+                {/* TARJETA 2: Análisis de reputación */}
                 <div className="bg-layout-surface border border-gray-200 rounded-xl p-6 shadow-sm">
                     <div className="flex items-center gap-2.5 mb-6">
                         <TrendingUp size={20} className="text-brand" />
@@ -181,6 +184,7 @@ export const DetalleLeads = () => {
                     </p>
                 </div>
 
+                {/* TARJETA 3: Últimas reseñas */}
                 <div className="bg-layout-surface border border-gray-200 rounded-xl p-6 shadow-sm">
                     <div className="flex items-center gap-2.5 mb-6">
                         <MessageSquare size={20} className="text-content-muted" />
@@ -202,6 +206,7 @@ export const DetalleLeads = () => {
                     </div>
                 </div>
 
+                {/* TARJETA 4: Borrador de correo */}
                 <div className="bg-layout-surface border border-gray-200 rounded-xl p-6 shadow-sm flex flex-col justify-between">
                     <div>
                         <div className="flex items-center gap-2.5 mb-4">
@@ -233,7 +238,7 @@ export const DetalleLeads = () => {
 
                     <button
                         onClick={handleCopyDraft}
-                        className="w-full py-2.5 px-4 bg-brand hover:bg-brand-dark text-white text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm"
+                        className="w-full py-2.5 px-4 bg-brand hover:bg-brand-dark text-white text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer"
                     >
                         {copied ? (
                             <>

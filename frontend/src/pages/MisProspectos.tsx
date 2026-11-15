@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Search, Mail, Calendar, ExternalLink } from 'lucide-react';
 import { type Lead } from '../utils/mockData';
-import { useLeads } from '../context/ProspectosContext';
+import { useLeads } from '../hooks/useLeads';
 import { useNavigate } from 'react-router-dom';
 
 export const MisProspectos = () => {
