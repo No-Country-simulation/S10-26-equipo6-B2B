@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
     "lint": "uv run --group dev ruff check app",
-    "test": "uv run --group dev pytest"
+    "test": "uv run --group dev pytest",
+    "seed": "uv run python -m app.infrastructure.database.seed_demo"
   }
 }
