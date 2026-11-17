@@ -17,6 +17,7 @@ from app.schemas.ai import AIAnalysisResponse
 from app.schemas.common import PaginatedResponse
 from app.schemas.contact import ContactResponse
 from app.schemas.lead import LeadResponse, LeadStatusUpdate
+from app.schemas.resenas import ReviewResponse
 from app.services.ai_service import AIService
 from app.services.enrichment_service import ContactEnrichmentService
 from app.services.prospecting_service import ProspectingService
@@ -118,6 +119,60 @@ def listar_leads(
         page=page,
         page_size=limit,
     )
+
+
+@router.get(
+    "/{lead_id}",
+    response_model=LeadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Obtiene el detalle completo de un lead",
+)
+def obtener_lead(
+    lead_id: UUID,
+    db: Annotated[Session, Depends(get_db_session)],
+    service: Annotated[ProspectingService, Depends(get_prospecting_service)],
+) -> LeadResponse:
+    """Devuelve la ficha completa del lead por su identificador UUID."""
+    business = service.business_repo.get_by_id(db, lead_id)
+    if business is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"lead no encontrado: {lead_id}",
+        )
+    return _a_lead_response(business)
+
+
+@router.get(
+    "/{lead_id}/reviews",
+    response_model=list[ReviewResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Lista las reseñas asociadas a un lead",
+)
+def listar_resenas_lead(
+    lead_id: UUID,
+    db: Annotated[Session, Depends(get_db_session)],
+    service: Annotated[ProspectingService, Depends(get_prospecting_service)],
+) -> list[ReviewResponse]:
+    """Devuelve las reseñas negativas extraídas para el lead."""
+    business = service.business_repo.get_by_id(db, lead_id)
+    if business is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"lead no encontrado: {lead_id}",
+        )
+    resenas: list[ReviewResponse] = []
+    for source in business.sources:
+        for r in source.reviews:
+            resenas.append(
+                ReviewResponse(
+                    review_id=r.review_id,
+                    author=r.author,
+                    rating=r.rating,
+                    content=r.content,
+                    reviewed_at=r.reviewed_at,
+                )
+            )
+    return resenas
 
 
 @router.patch(

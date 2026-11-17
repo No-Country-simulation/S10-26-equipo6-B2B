@@ -1,8 +1,9 @@
 """Contrato de una reseña extraída de una plataforma de mapas."""
 
 from datetime import datetime
+from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Resena(BaseModel):
@@ -29,3 +30,16 @@ class Resena(BaseModel):
     id: str = ""
     texto: str = ""
     scraped_at: datetime | None = None
+
+
+class ReviewResponse(BaseModel):
+    """Vista de una reseña individual para el dashboard de prospectos."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    review_id: UUID
+    author: str | None = None
+    rating: int | None = None
+    content: str | None = None
+    reviewed_at: datetime | None = None
+

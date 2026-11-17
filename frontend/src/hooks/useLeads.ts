@@ -3,8 +3,11 @@ import { type Lead } from '../utils/mockData';
 
 export interface LeadsContextType {
     leads: Lead[];
+    isLoading: boolean;
     saveLeadToProspects: (id: string) => void;
     updateLeadStatus: (id: string, newStatus: Lead['status']) => void;
+    refreshLeads: () => Promise<void>;
+    exportToCsv: () => void;
 }
 
 // 1. Creamos y exportamos el contexto aquí

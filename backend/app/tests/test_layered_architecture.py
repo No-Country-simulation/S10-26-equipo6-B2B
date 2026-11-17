@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -401,6 +401,60 @@ def test_patch_lead_status_invalido_da_422(cliente_sqlite) -> None:
     )
 
     assert respuesta.status_code == 422
+
+
+def test_get_lead_por_id_existente(cliente_sqlite) -> None:
+    cliente, fabrica = cliente_sqlite
+    business_id = _sembrar_lead(fabrica)
+
+    respuesta = cliente.get(f"/api/v1/leads/{business_id}")
+
+    assert respuesta.status_code == 200
+    lead = respuesta.json()
+    assert lead["business_id"] == business_id
+    assert lead["name"] == "Clínica Dental Ejemplo"
+    assert lead["rating"] == 3.1
+    assert lead["total_reviews"] == 12
+
+
+def test_get_lead_por_id_inexistente_da_404(cliente_sqlite) -> None:
+    cliente, _ = cliente_sqlite
+    random_id = uuid4()
+
+    respuesta = cliente.get(f"/api/v1/leads/{random_id}")
+
+    assert respuesta.status_code == 404
+    assert "no encontrado" in respuesta.json()["detail"].lower()
+
+
+def test_get_lead_reviews(cliente_sqlite) -> None:
+    cliente, fabrica = cliente_sqlite
+    business_id = _sembrar_lead(fabrica)
+
+    resp_vacia = cliente.get(f"/api/v1/leads/{business_id}/reviews")
+    assert resp_vacia.status_code == 200
+    assert resp_vacia.json() == []
+
+    with fabrica() as db:
+        source = db.query(BusinessSource).filter_by(business_id=UUID(business_id)).first()
+        rev = Review(
+            business_source_id=source.business_source_id,
+            external_id="rev-test-1",
+            author="Carlos Gómez",
+            rating=2,
+            content="Mala atención en recepción y retraso.",
+            reviewed_at=datetime(2026, 11, 10, tzinfo=UTC),
+        )
+        db.add(rev)
+        db.commit()
+
+    resp_con_resenas = cliente.get(f"/api/v1/leads/{business_id}/reviews")
+    assert resp_con_resenas.status_code == 200
+    resenas = resp_con_resenas.json()
+    assert len(resenas) == 1
+    assert resenas[0]["author"] == "Carlos Gómez"
+    assert resenas[0]["rating"] == 2
+    assert resenas[0]["content"] == "Mala atención en recepción y retraso."
 
 
 # --- Cumplimiento S.O.L.I.D. -------------------------------------------------
