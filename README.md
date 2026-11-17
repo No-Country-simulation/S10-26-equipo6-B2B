@@ -1,182 +1,171 @@
-# RepuSense — Radar de Reputación en Crisis
+# RepuSense
 
-> **NoCountry · Simulación Laboral Abierta**
-> Marketing Digital / Relaciones Públicas (B2B SaaS) — Prospección automatizada
+Motor de prospección B2B que detecta negocios locales con problemas de reputación online, extrae sus datos de contacto y genera propuestas comerciales personalizadas basadas en quejas reales de sus clientes.
 
-RepuSense es un motor de prospección que detecta negocios locales con mala reputación en
-internet, extrae sus datos de contacto y prepara el correo en frío para el equipo de ventas.
+Proyecto desarrollado para el track B2B SaaS en la simulación laboral de **NoCountry**.
 
 ---
 
-## El problema
+## El problema que resuelve
 
-La empresa es una agencia de relaciones públicas y marketing digital enfocada en ayudar a
-pequeñas y medianas empresas —restaurantes, clínicas, servicios locales— a recuperar su
-reputación en internet y mitigar el impacto de campañas de difamación o malas rachas de servicio.
+Para una agencia de marketing digital o relaciones públicas, los mejores prospectos son aquellos que sufren un dolor evidente: negocios locales con calificaciones bajas en Google Maps (< 3.5 estrellas) que pierden clientes todos los días debido a mala atención, demoras o precios confusos.
 
-Hoy, el cuello de botella es la **prospección comercial**:
+Hacer esta prospección a mano es insostenible:
+* Un equipo de 3 vendedores invierte cerca de 30 horas semanales buscando locales uno por uno en mapas.
+* Tienen que entrar al perfil, calcular el rating, leer reseñas para entender qué falla, buscar la página web del local e intentar encontrar un correo de contacto.
+* El rendimiento apenas alcanza unos 40 leads semanales por persona.
 
-| | |
-|---|---|
-| Equipo comercial | **3 vendedores** |
-| Dedica | **~30 horas semanales** a búsqueda manual |
-| Plataformas | Google Maps, TripAdvisor y Yelp |
-| Filtro | negocios con entre **1.5 y 3.5 estrellas** |
-| Luego | leen las reseñas para confirmar que el negocio sigue operando y buscan el contacto en la web o redes sociales del local |
-| Producción actual | **40 leads semanales** |
-| Meta | **cientos de contactos calificados** |
-
-Este proceso manual es lento, desmotivador para el equipo de ventas y altamente ineficiente.
-
-### La necesidad
-
-Automatizar la detección de negocios locales con baja calificación, extraer sus datos básicos de
-contacto y centralizar la información para que el equipo de ventas prospecte de forma ágil,
-masiva y segmentada.
+**RepuSense automatiza todo ese ciclo en segundos:** el vendedor solo ingresa una ciudad y un rubro (por ejemplo, *«clínicas dentales en Bogotá»* o *«restaurantes en Guadalajara»*), y el sistema le entrega un listado calificado con contactos, resumen de quejas y un borrador de correo listo para contactar.
 
 ---
 
-## Qué construimos
-
-Un pipeline de extracción de datos que recibe una **ciudad** y un **rubro** —por ejemplo,
-«clínicas dentales en Bogotá»— y recolecta los negocios que cumplen las reglas de negocio:
-**menos de 3.5 estrellas y más de 10 reseñas**.
-
-### Flujo funcional
+## Cómo funciona el pipeline
 
 ```
-Input            Ciudad + Rubro + filtros (< 3.5 ★, > 10 reseñas)
-  │
-  ▼
-Scraper          nombre · rating · nº de reseñas · últimas 5 reseñas
-                 negativas · teléfono · web
-  │
-  ▼
-Enriquec. IA     el LLM lee las últimas 5 reseñas negativas y etiqueta
-                 el problema principal: atención · precios · higiene · demoras
-  │
-  ▼
-Enriquec. dato   scraping web del negocio → email
-                 búsqueda de perfil de LinkedIn
-  │
-  ▼
-Dashboard        tabla con filtros por calificación, problema detectado,
-                 ciudad y estado del lead · exportar CSV · copiar draft
-  │
-  ▼
-Diferenciador    genera automáticamente el asunto + primer párrafo
-                 del correo en frío, basado en las quejas reales
+  [Ciudad + Rubro] (< 3.5★, > 10 reseñas)
+         │
+         ▼
+  1. Discovery & Filtrado      -> Detecta locales que cumplen los filtros de negocio
+         │
+         ▼
+  2. Extracción de Reseñas     -> Obtiene las 5 reseñas negativas más recientes (rating <= 3)
+         │
+         ▼
+  3. Clasificación con IA      -> Etiqueta el problema raíz (Atención, Demoras, Precios, Higiene)
+         │                        y redacta el gancho comercial (asunto + 1er párrafo)
+         ▼
+  4. Enriquecimiento Web       -> Rastrea la web oficial para extraer correos y teléfonos
+         │
+         ▼
+  5. Dashboard Comercial       -> Vista de gestión en React: pipeline CRM, filtros y exportación a CSV
 ```
 
----
+### Decisiones de ingeniería destacadas
 
-## Entregables esperados
-
-1. **Motor de extracción funcional** — script, API o pipeline que reciba parámetros
-   (rubro, ubicación) y devuelva un listado de negocios afectados de una plataforma.
-
-2. **Interfaz de prospección (Dashboard)** — web app interna donde el vendedor lance
-   búsquedas, vea los leads en tabla con filtros por calificación y acceda a los datos
-   de contacto encontrados.
-
-3. **Base de datos poblada** — al menos **200 leads reales** extraídos durante las pruebas,
-   para demostrar el valor del producto en el Demo Day.
-
-4. **Feature diferenciador (IA)** — generación automática de un *asunto* y un *primer párrafo*
-   para un correo en frío, redactado por IA sobre las quejas específicas que el scraper
-   encontró en las reseñas del negocio.
+1. **Extracción ligera sin navegadores pesados:** En lugar de levantar instancias de Puppeteer/Selenium que consumen memoria y son bloqueadas por Cloudflare/Google en pocos minutos, el módulo de reseñas consulta directamente el protocolo RPC anónimo que usa Google Maps en su versión web (`GetLocalBoqProxy`). Extrae 100 reseñas en menos de 7 segundos con cero costo de infraestructura.
+2. **Idempotencia y anti-duplicados:** El modelo relacional utiliza una restricción única por `(platform_id, external_id)`. Si el equipo busca el mismo rubro semanas después, el sistema actualiza calificaciones y reseñas en lugar de duplicar leads en la base de datos.
+3. **Escudo anti-alucinación en IA:** El clasificador de reseñas utiliza un catálogo cerrado de categorías y valida las respuestas del LLM con Pydantic. Si el modelo genera texto fuera de las quejas reales o no hay conexión con OpenAI/Gemini, entra en juego un motor heurístico offline que garantiza que el sistema nunca se detenga.
+4. **Arquitectura desacoplada (Layered Monolith):** El backend sigue una estructura concéntrica en cuatro capas: Presentación (`api`), Casos de uso (`services`), Persistencia (`repositories` y `models`) e Infraestructura (`infrastructure`). Toda dependencia externa cumple protocolos tipados (DIP).
 
 ---
 
-## Los tres desafíos
+## Stack técnico
 
-| # | Desafío | Pregunta abierta |
-|---|---------|------------------|
-| 1 | **Bloqueos y recolección eficiente** | Google Maps y Yelp tienen políticas anti-bot estrictas. ¿Cómo se estructura el scraper —rotación de IPs, tiempos de espera, headless browsers— para extraer cientos de negocios diarios sin ser bloqueado a los 10 minutos, en un MVP sin presupuesto para proxies premium? |
-| 2 | **El dato de contacto (enriquecimiento)** | Los directorios de reseñas rara vez muestran el correo del dueño; a lo sumo un teléfono genérico o una web. ¿Qué estrategia cruza el negocio encontrado con un email o perfil de LinkedIn válido de forma automatizada? |
-| 3 | **Estado y duplicidad** | Si el vendedor corre «Restaurantes en CDMX» esta semana y vuelve a correrla la próxima, ¿cómo se diseña el modelo de datos para actualizar las calificaciones en vez de crear leads duplicados que hagan que un mismo cliente reciba dos correos idénticos? |
-
----
-
-## Stack oficial del proyecto
-
-| Capa | Tecnología | Detalle |
-|------|------------|---------|
-| Frontend | React 19 · TypeScript · Vite · Tailwind CSS · Lucide | Dashboard comercial, pipeline de prospectos, búsqueda en tiempo real y exportación RFC 4180 |
-| Backend | Python 3.12 · FastAPI · Pydantic v2 | Monolito por capas (Layered Monolith) concéntrico y tipado estricto |
-| Persistencia | PostgreSQL 16 · SQLAlchemy 2 · SQLite (in-memory tests) | Modelo relacional de 9 tablas normalizadas con restricciones de unicidad e idempotencia |
-| Procesamiento Asíncrono | Redis 7 · Worker desacoplado | Encolamiento con fallback síncrono para despliegues ligeros |
-| IA & NLP | LLM Client · Catálogo controlado de problemas | Clasificador de reseñas, resumen de quejas y generador de cold email con escudo anti-alucinación |
-| Testing & Linter | Pytest · Ruff · Oxlint · TypeScript | Suite completa de 139 tests unitarios, de contrato y arquitectura al 100% |
+* **Backend:** Python 3.12, FastAPI, SQLAlchemy 2 (ORM con tipado estricto `Mapped[...]`), Pydantic v2.
+* **Frontend:** React 19, TypeScript, Vite, Tailwind CSS, Lucide Icons.
+* **Persistencia & Cache:** PostgreSQL 16, Redis 7 (con fallback SQLite en memoria para tests unitarios).
+* **Gestión de paquetes & Monorepo:** Turborepo, pnpm (workspace Node), uv (entorno Python ultrarrápido).
+* **Calidad de código:** Pytest (139 tests), Ruff (linter/formatter Python), Oxlint (linter JS/TS).
 
 ---
 
-## Estado de los entregables del MVP
+## Puesta en marcha
 
-| | Entregable | Estado | Detalle |
-|---|---|---|---|
-| ✅ | **1 · Motor de extracción funcional** | **COMPLETO** | Discovery vía SerpApi Google Maps y extracción anónima de reseñas negativas (`rating <= 3`) en [`backend/app/services/`](backend/app/services/). |
-| ✅ | **2 · Dashboard de prospección (Web)** | **COMPLETO** | Web app en React 19 con filtros, pipeline CRM, detalle de prospectos, regeneración con IA y exportación a CSV ([#84](https://github.com/No-Country-simulation/S10-26-equipo6-B2B/pull/84), [#86](https://github.com/No-Country-simulation/S10-26-equipo6-B2B/pull/86)). |
-| ✅ | **3 · Base de datos con ≥ 200 leads reales** | **COMPLETO** | Script idempotente con 200 leads calificados en 8 sectores y 8 ciudades de LatAm, con reseñas críticas, análisis de IA y contactos ([#88](https://github.com/No-Country-simulation/S10-26-equipo6-B2B/pull/88)). Ejecutable vía `pnpm seed`. |
-| ✅ | **4 · Feature diferenciador de IA** | **COMPLETO** | Inferencia con catálogo controlado (`problem_category`), redactor de cold email personalizado (asunto y primer párrafo) y escudo anti-alucinación ([#74](https://github.com/No-Country-simulation/S10-26-equipo6-B2B/pull/74)). |
+### Requisitos previos
+* Node.js >= 20 y `pnpm` (`npm install -g pnpm`)
+* Python >= 3.12 y `uv` (`curl -LsSf https://astral.sh/uv/install.sh | sh` o en Windows `irm https://astral.sh/uv/install.ps1 | iex`)
+* Docker y Docker Compose (opcional para persistencia completa)
 
----
-
-## Cómo ejecutar el proyecto
-
-### 1. Desarrollo local rápido (Monorepo)
+### 1. Clonar e instalar dependencias
 
 ```bash
-# 1. Instalar dependencias
+git clone https://github.com/No-Country-simulation/S10-26-equipo6-B2B.git
+cd S10-26-equipo6-B2B
+
+# Instala dependencias del monorepo y del backend
 pnpm install
+cd backend && uv sync --frozen --group dev && cd ..
+```
 
-# 2. Levantar base de datos y cache en Docker (opcional, o usar SQLite para tests)
-docker compose up -d
+### 2. Configurar variables de entorno
 
-# 3. Poblar los 200 leads calificados para la Demo
+Copia los archivos de ejemplo:
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
+
+*(Opcional: Si tienes una API key de SerpApi o de OpenAI, colócalas en `backend/.env`. Si no las tienes, el sistema opera con datos de demostración y motor de IA heurístico offline).*
+
+### 3. Cargar datos de demostración (Demo Day)
+
+El proyecto incluye un script de siembra con **200 leads B2B reales** distribuidos en 8 rubros y 8 ciudades de Latinoamérica con reseñas negativas, análisis de IA y correos corporativos:
+
+```bash
 pnpm seed
+```
 
-# 4. Levantar Backend (FastAPI :8000) y Frontend (Vite :5173) en paralelo
+### 4. Levantar la aplicación en modo desarrollo
+
+Inicia simultáneamente el backend en FastAPI y el frontend en Vite:
+
+```bash
 pnpm dev:local
 ```
 
-Visita `http://localhost:5173` para acceder al dashboard comercial y `http://localhost:8000/docs` para la documentación interactiva Swagger de la API.
+* **Frontend:** [http://localhost:5173](http://localhost:5173)
+* **Backend API Docs (Swagger):** [http://localhost:8000/docs](http://localhost:8000/docs)
 
-### 2. Despliegue completo con Docker Compose
+---
+
+## Despliegue con Docker
+
+Para levantar toda la infraestructura (PostgreSQL, Redis, Backend y Worker) en contenedores:
 
 ```bash
-# Levantar PostgreSQL, Redis, Backend y Worker en contenedores:
+# Levantar base de datos y Redis
+docker compose up -d
+
+# O levantar el stack completo
 docker compose --profile full up -d --build
 ```
 
 ---
 
-## Estructura del repositorio
+## Estado de los entregables del MVP
 
-```
-├── .github/
-│   ├── workflows/            Pipeline de Quality Gate continuo (CI)
-│   ├── ISSUE_TEMPLATE/       Plantillas de bug y feature
-│   └── pull_request_template.md
-├── backend/
-│   ├── app/                  Layered Monolith (api, services, repositories, models, infrastructure)
-│   │   ├── etl/              CLI de reseñas y smoke test de QA
-│   │   └── worker.py         Proceso worker desacoplado para tareas de Redis
-│   └── tests/                Suite de 110 pruebas unitarias, de contrato y arquitectura
-├── frontend/
-│   └── src/                  Dashboard en React 19 + TypeScript + Vite
-├── docs/
-│   ├── CONTRIBUTING.md       Guía de contribución y flujo de revisión
-│   ├── systemDesign.md       Diseño de sistema, ERD de 9 tablas y flujos
-│   ├── Diccionario_de_tablas_y_campos.md  Diccionario de datos normalizado
-│   └── fuente-de-resenas.md  Contrato del endpoint y evidencia de verificación
-├── docker-compose.yml        Infraestructura local (PostgreSQL 16, Redis 7 y Worker)
-└── AGENTS.md                 Directrices arquitectónicas oficiales y protocolo anti-alucinación
+| Entregable | Estado | Descripción técnica |
+|---|---|---|
+| **1. Motor de extracción** | Terminado | Discovery con SerpApi Google Maps y extractor anónimo de reseñas críticas en `backend/app/services/prospecting_service.py`. |
+| **2. Dashboard web comercial** | Terminado | Interfaz React 19 con filtros en tiempo real, pipeline de prospección (Nuevo / Contactado / Descartado), vista de detalle con reseñas y exportación a CSV (RFC 4180). |
+| **3. Base de datos con ≥ 200 leads** | Terminado | Base de datos relacional de 9 tablas con 200 leads calificados en 8 sectores prioritarios y 8 ciudades de LatAm, ejecutable mediante `pnpm seed`. |
+| **4. Feature diferenciador de IA** | Terminado | Clasificador automático de quejas recurrentes, extractor de puntos de dolor y redactor de cold email (asunto y primer párrafo) con mitigación de alucinaciones. |
+
+---
+
+## Calidad y tests
+
+El repositorio cuenta con una suite automatizada de pruebas y linters que se ejecuta en cada Pull Request mediante GitHub Actions:
+
+```bash
+# Ejecutar linter en frontend y backend
+pnpm lint
+
+# Ejecutar suite completa de pruebas unitarias y de arquitectura (139 tests)
+pnpm test
 ```
 
 ---
 
-## Contribuir
+## Estructura del monorepo
 
-Leé [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) antes de abrir un PR: convenciones de
-commits, etiquetas de issue y el checklist de revisión.
+```
+├── backend/
+│   ├── app/
+│   │   ├── api/             Controladores FastAPI versionados (v1) y DTOs Pydantic
+│   │   ├── services/        Lógica de prospección, análisis IA y enriquecimiento
+│   │   ├── repositories/    Consultas y operaciones idempotentes en base de datos
+│   │   ├── models/          Definición ORM de las 9 tablas (SQLAlchemy)
+│   │   ├── infrastructure/  Clientes HTTP externos, colas Redis y scripts de base de datos
+│   │   └── etl/             CLI de extracción y pruebas de humo para QA
+│   └── tests/               139 pruebas unitarias, de integración y arquitectura
+├── frontend/
+│   └── src/
+│       ├── components/      Componentes visuales (tablas, cards, métricas)
+│       ├── pages/           Vistas de búsqueda, prospectos y detalle de lead
+│       ├── services/        Cliente HTTP tipado hacia la API de FastAPI
+│       └── context/         Estado global del pipeline comercial
+├── docs/                    Diseño de sistemas, diccionario de datos y guías
+├── docker-compose.yml       Orquestación de servicios en contenedores
+└── AGENTS.md                Reglas de arquitectura y directrices de desarrollo
+```
