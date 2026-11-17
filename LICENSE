@@ -1,0 +1,55 @@
+LICENCIA DE CÓDIGO FUENTE RESTRINGIDO — NO COMERCIAL Y SIN OBRAS DERIVADAS (NC-ND)
+================================================================================
+
+Copyright (c) 2026 RepuSense Authors — NoCountry Equipo S10-26-equipo6-B2B.
+Todos los derechos reservados.
+
+Por la presente se autoriza a cualquier persona que obtenga una copia de este
+software y los archivos de documentación asociados (el "Software"), a examinar,
+compilar y ejecutar el Software únicamente con fines personales, educativos,
+académicos y de evaluación técnica dentro del marco de la simulación laboral
+de NoCountry, sujeto estrictamente a las siguientes condiciones:
+
+1. USO NO COMERCIAL (NON-COMMERCIAL)
+Queda expresamente prohibido cualquier uso comercial, directo o indirecto, del
+Software o de sus componentes. Esto incluye, sin limitación:
+- El uso del Software con fines de lucro, venta, reventa o monetización.
+- La incorporación total o parcial del Software en productos, plataformas SaaS o
+  servicios comerciales de terceros.
+- El empleo de los scripts de prospección y scraping para fines de prospección
+  comercial activa en entornos productivos fuera del marco educativo del proyecto.
+
+2. PROHIBICIÓN DE MODIFICACIÓN Y OBRAS DERIVADAS (NO DERIVATIVES)
+Queda terminantemente prohibido modificar, alterar, descompilar, adaptar,
+transformar, traducir o crear obras derivadas basadas en la totalidad o en
+cualquier porción del código fuente, arquitectura, esquemas de bases de datos
+o módulos de extracción de este Software, salvo consentimiento expreso y por
+escrito de los autores originales.
+
+3. PROHIBICIÓN DE REDISTRIBUCIÓN Y SUBLICENCIA
+No se permite la redistribución, sublicenciamiento, publicación, cesión o
+alquiler de este Software, ya sea en su forma original o modificada, a través
+de ningún medio o canal público o privado sin autorización previa y por escrito.
+
+4. EXENCIÓN DE RESPONSABILIDAD SOBRE EXTRACCIÓN DE DATOS Y TÉRMINOS DE TERCEROS
+El Software incluye módulos y scripts destinados a la recolección automatizada
+de información pública en internet (web scraping). Este desarrollo ha sido
+concebido exclusivamente como una prueba de concepto técnica y académica.
+En consecuencia:
+- Los autores NO asumen responsabilidad alguna por el uso indebido, abusivo o
+  no autorizado de las herramientas de extracción o recolección de datos.
+- Es responsabilidad exclusiva y excluyente del usuario cumplir en todo momento
+  con las leyes aplicables de protección de datos personales, regulaciones sobre
+  privacidad digital y los términos de servicio (ToS) de cualquier plataforma
+  de terceros (incluyendo Google, Google Maps, OpenAI o equivalentes).
+- Queda prohibido utilizar este Software para el envío de comunicaciones masivas
+  no solicitadas (spam) o cualquier actividad contraria a la ley.
+
+5. RENUNCIA DE GARANTÍA Y LÍMITE DE RESPONSABILIDAD
+EL SOFTWARE SE PROPORCIONA "TAL CUAL" ("AS IS"), SIN GARANTÍA DE NINGÚN TIPO,
+EXPRESA O IMPLÍCITA, INCLUYENDO PERO SIN LIMITARSE A LAS GARANTÍAS DE
+COMERCIABILIDAD, IDONEIDAD PARA UN PROPÓSITO PARTICULAR Y NO INFRACCIÓN.
+EN NINGÚN CASO LOS AUTORES O TITULARES DEL COPYRIGHT SERÁN RESPONSABLES DE
+NINGUNA RECLAMACIÓN, DAÑOS U OTRAS RESPONSABILIDADES, YA SEA EN UNA ACCIÓN DE
+CONTRATO, AGRAVIO O DE OTRO TIPO, QUE SURJA DE O EN CONEXIÓN CON EL SOFTWARE
+O EL USO U OTROS TRATOS EN EL SOFTWARE.

@@ -167,5 +167,18 @@ pnpm test
 │       └── context/         Estado global del pipeline comercial
 ├── docs/                    Diseño de sistemas, diccionario de datos y guías
 ├── docker-compose.yml       Orquestación de servicios en contenedores
+├── LICENSE                  Términos de uso no comercial y sin obras derivadas
 └── AGENTS.md                Reglas de arquitectura y directrices de desarrollo
 ```
+
+---
+
+## Licencia
+
+Este proyecto está protegido bajo una **Licencia Restringida de Código Fuente — No Comercial y Sin Obras Derivadas (NC-ND)**.
+
+* **Uso exclusivamente no comercial:** Permitido únicamente con fines educativos, de demostración y evaluación técnica dentro del marco de la simulación laboral de NoCountry.
+* **Prohibición de modificaciones:** No está permitida la modificación, alteración, transformación o creación de obras derivadas a partir del código o sus módulos de extracción.
+* **Uso responsable y exención de responsabilidad:** El software es una prueba de concepto técnica y académica. Los autores no asumen responsabilidad alguna por el uso indebido de las herramientas de recolección de datos ni por la infracción de los términos de servicio de plataformas de terceros.
+
+Consulta el archivo [`LICENSE`](LICENSE) para revisar los términos completos.
