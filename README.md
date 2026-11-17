@@ -98,42 +98,56 @@ Diferenciador    genera automáticamente el asunto + primer párrafo
 
 ---
 
-## Stack sugerido por el brief
+## Stack oficial del proyecto
 
-| Capa | Opciones |
-|------|----------|
-| Data / Scraping | Python — BeautifulSoup, Selenium, Playwright, Scrapy · Node.js — Puppeteer, Crawlee |
-| Backend | FastAPI (Python) · Express / NestJS (Node) |
-| Frontend | React · Next.js · Vue |
-| Base de datos | PostgreSQL · MongoDB |
-| IA (opcional) | OpenAI API · Anthropic · modelos locales vía Ollama / LangChain |
-
-> **Estado:** el stack todavía **no está cerrado** por el equipo.
+| Capa | Tecnología | Detalle |
+|------|------------|---------|
+| Frontend | React 19 · TypeScript · Vite · Tailwind CSS · Lucide | Dashboard comercial, pipeline de prospectos, búsqueda en tiempo real y exportación RFC 4180 |
+| Backend | Python 3.12 · FastAPI · Pydantic v2 | Monolito por capas (Layered Monolith) concéntrico y tipado estricto |
+| Persistencia | PostgreSQL 16 · SQLAlchemy 2 · SQLite (in-memory tests) | Modelo relacional de 9 tablas normalizadas con restricciones de unicidad e idempotencia |
+| Procesamiento Asíncrono | Redis 7 · Worker desacoplado | Encolamiento con fallback síncrono para despliegues ligeros |
+| IA & NLP | LLM Client · Catálogo controlado de problemas | Clasificador de reseñas, resumen de quejas y generador de cold email con escudo anti-alucinación |
+| Testing & Linter | Pytest · Ruff · Oxlint · TypeScript | Suite completa de 139 tests unitarios, de contrato y arquitectura al 100% |
 
 ---
 
-## Estado del proyecto
+## Estado de los entregables del MVP
 
-### Construido
+| | Entregable | Estado | Detalle |
+|---|---|---|---|
+| ✅ | **1 · Motor de extracción funcional** | **COMPLETO** | Discovery vía SerpApi Google Maps y extracción anónima de reseñas negativas (`rating <= 3`) en [`backend/app/services/`](backend/app/services/). |
+| ✅ | **2 · Dashboard de prospección (Web)** | **COMPLETO** | Web app en React 19 con filtros, pipeline CRM, detalle de prospectos, regeneración con IA y exportación a CSV ([#84](https://github.com/No-Country-simulation/S10-26-equipo6-B2B/pull/84), [#86](https://github.com/No-Country-simulation/S10-26-equipo6-B2B/pull/86)). |
+| ✅ | **3 · Base de datos con ≥ 200 leads reales** | **COMPLETO** | Script idempotente con 200 leads calificados en 8 sectores y 8 ciudades de LatAm, con reseñas críticas, análisis de IA y contactos ([#88](https://github.com/No-Country-simulation/S10-26-equipo6-B2B/pull/88)). Ejecutable vía `pnpm seed`. |
+| ✅ | **4 · Feature diferenciador de IA** | **COMPLETO** | Inferencia con catálogo controlado (`problem_category`), redactor de cold email personalizado (asunto y primer párrafo) y escudo anti-alucinación ([#74](https://github.com/No-Country-simulation/S10-26-equipo6-B2B/pull/74)). |
 
-| | Artefacto | Dónde |
-|---|---|---|
-| ✅ | **Fuente de reseñas verificada** — contrato del endpoint anónimo, sin login ni cookies. Se probaron **9 combinaciones de scraping** que fueron bloqueadas; las reseñas de la API oficial de Places quedan en `[]` o limitadas a 5 por relevancia, insuficiente para las 5 negativas más recientes del brief. | [`docs/fuente-de-resenas.md`](docs/fuente-de-resenas.md) |
-| ✅ | **Módulo ETL y CLI de reseñas** — punto de entrada para smoke tests de QA y extracción, con paginación, umbral de negativas `rating <= 3` y manejo de CIDs. | [`backend/app/etl/resenas.py`](backend/app/etl/resenas.py) |
-| ✅ | **API REST y Layered Monolith** — endpoints de prospección (`POST /api/v1/busquedas`, `GET /api/v1/busquedas/{id}`, `GET /api/v1/leads`), arquitectura concéntrica desacoplada con DIP y suite de 110 tests en verde. | [`backend/app/api/`](backend/app/api/) · [`backend/app/services/`](backend/app/services/) |
-| ✅ | **Procesamiento Asíncrono con Redis** — encolamiento en Redis (`LPUSH`/`BRPOP`) con fallback automático y proceso worker desacoplado (`python -m app.worker`). | [`backend/app/infrastructure/queue/`](backend/app/infrastructure/queue/) · [`backend/app/worker.py`](backend/app/worker.py) |
-| ✅ | **Feature Diferenciador IA y Cold Email (RF4)** — clasificador de reseñas con catálogo controlado (`problem_category`), generador de asunto y gancho de cold email, escudo anti-alucinación Pydantic (`[LLM_HALLUCINATION_DETECTED]`), contrato DIP (`AIProviderProtocol`) y endpoints dedicados. | [`backend/app/schemas/ai.py`](backend/app/schemas/ai.py) · [`backend/app/services/ai_service.py`](backend/app/services/ai_service.py) · [`backend/app/infrastructure/external/llm_client.py`](backend/app/infrastructure/external/llm_client.py) |
-| ✅ | **Enriquecimiento de Contactos Web (RF3)** — rastreo secundario sobre el sitio web oficial del lead para extraer correos válidos con regex, exclusión de falsos positivos, persistencia idempotente en `contact` y contrato DIP (`ContactEnricherProtocol`). | [`backend/app/infrastructure/external/website_scraper.py`](backend/app/infrastructure/external/website_scraper.py) · [`backend/app/services/enrichment_service.py`](backend/app/services/enrichment_service.py) · [`backend/app/repositories/contact_repo.py`](backend/app/repositories/contact_repo.py) |
-| ✅ | **Quality Gate Continuo (CI)** — pipeline de GitHub Actions ejecutando Ruff, Pytest, Oxlint y TypeScript Build en paralelo en < 30 s por cada PR. | [`.github/workflows/pr-quality-gate.yml`](.github/workflows/pr-quality-gate.yml) |
-| ✅ | **Infraestructura de contribución** — plantillas de issue y PR, directivas arquitectónicas y guía de contribución. | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) · [`AGENTS.md`](AGENTS.md) |
+---
 
-### Pendiente
+## Cómo ejecutar el proyecto
 
-| | Entregable | Estado |
-|---|---|---|
-| ⏳ | **2 · Dashboard de prospección** | Scaffold inicial listo. Pendiente UI con filtros, export a CSV y visualización de prospectos (#60). |
-| ⏳ | **3 · Base de datos con ≥ 200 leads** | Modelo de 9 tablas tipado en SQLAlchemy. Pendiente script de migraciones SQL para Docker (#38). |
-| ✅ | **4 · Feature diferenciador IA** | Clasificación de problemas y generación de cold email con LLM, catálogo controlado y escudo anti-alucinación (#73). |
+### 1. Desarrollo local rápido (Monorepo)
+
+```bash
+# 1. Instalar dependencias
+pnpm install
+
+# 2. Levantar base de datos y cache en Docker (opcional, o usar SQLite para tests)
+docker compose up -d
+
+# 3. Poblar los 200 leads calificados para la Demo
+pnpm seed
+
+# 4. Levantar Backend (FastAPI :8000) y Frontend (Vite :5173) en paralelo
+pnpm dev:local
+```
+
+Visita `http://localhost:5173` para acceder al dashboard comercial y `http://localhost:8000/docs` para la documentación interactiva Swagger de la API.
+
+### 2. Despliegue completo con Docker Compose
+
+```bash
+# Levantar PostgreSQL, Redis, Backend y Worker en contenedores:
+docker compose --profile full up -d --build
+```
 
 ---
 

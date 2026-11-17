@@ -1,11 +1,11 @@
 # Infraestructura local de RepuSense.
-# Solo Postgres y Redis: el backend corre en la maquina con `pnpm dev:backend`.
 #
-#   docker compose up -d      levantar
-#   docker compose ps         estado
-#   docker compose logs -f    logs
-#   docker compose down       parar
-#   docker compose down -v    parar y BORRAR los datos
+#   docker compose up -d                  levantar base de datos y cache (PostgreSQL y Redis)
+#   docker compose --profile full up -d   levantar stack completo en contenedores (Postgres, Redis, Backend y Worker)
+#   docker compose ps                     estado
+#   docker compose logs -f                logs
+#   docker compose down                   parar
+#   docker compose down -v                parar y BORRAR los datos
 
 name: repusense
 
@@ -43,6 +43,28 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: repusense-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://repusense:repusense@postgres:5432/repusense
+      REDIS_URL: redis://redis:6379/0
+      SERPAPI_KEY: ${SERPAPI_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    profiles:
+      - backend
+      - full
 
   worker:
     build:
