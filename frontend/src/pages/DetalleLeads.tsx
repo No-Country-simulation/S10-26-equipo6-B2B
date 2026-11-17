@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLeads } from '../hooks/useLeads';
-import { type Lead } from '../utils/mockData';
+import { type Review, type Lead } from '../utils/mockData';
+import { api } from '../services/api';
 
 import {
     ArrowLeft,
@@ -16,7 +17,9 @@ import {
     Copy,
     Check,
     CheckCircle2,
-    BookmarkPlus
+    BookmarkPlus,
+    Sparkles,
+    Loader2
 } from 'lucide-react';
 
 export const DetalleLeads = () => {
@@ -33,14 +36,42 @@ export const DetalleLeads = () => {
     const [subject, setSubject] = useState(lead.draftSubject);
     const [body, setBody] = useState(lead.draftBody);
     const [copied, setCopied] = useState(false);
+    const [reviews, setReviews] = useState<Review[]>(lead.recentReviews || []);
+    const [isRegenerating, setIsRegenerating] = useState(false);
 
-    // Sincronizamos el borrador si cambia el lead seleccionado sin usar useEffect
+    // Carga de reseñas reales desde la API si están disponibles
+    useEffect(() => {
+        if (lead?.id) {
+            api.obtenerResenasLead(lead.id).then((items) => {
+                if (items && items.length > 0) {
+                    setReviews(items);
+                }
+            }).catch(() => {});
+        }
+    }, [lead?.id]);
+
+    // Sincronizamos el borrador si cambia el lead seleccionado
     const [prevLeadId, setPrevLeadId] = useState(lead.id);
     if (lead.id !== prevLeadId) {
         setPrevLeadId(lead.id);
         setSubject(lead.draftSubject);
         setBody(lead.draftBody);
+        setReviews(lead.recentReviews || []);
     }
+
+    // Función para regenerar análisis y cold email con IA
+    const handleRegenerateAI = async () => {
+        setIsRegenerating(true);
+        try {
+            const data = await api.generarAnalisisIA(lead.id);
+            if (data.email_subject) setSubject(data.email_subject);
+            if (data.email_first_paragraph) setBody(data.email_first_paragraph);
+        } catch (err) {
+            console.warn('No se pudo regenerar con IA:', err);
+        } finally {
+            setIsRegenerating(false);
+        }
+    };
 
     // Función para copiar el correo al portapapeles
     const handleCopyDraft = () => {
@@ -192,7 +223,7 @@ export const DetalleLeads = () => {
                     </div>
 
                     <div className="space-y-4">
-                        {lead.recentReviews.map((review) => (
+                        {(reviews && reviews.length > 0 ? reviews : lead.recentReviews).map((review) => (
                             <div key={review.id} className="bg-gray-50 border border-gray-100 rounded-xl p-4">
                                 <div className="flex justify-between items-center mb-2">
                                     <span className="text-sm font-bold text-content-main">{review.author}</span>
@@ -209,9 +240,30 @@ export const DetalleLeads = () => {
                 {/* TARJETA 4: Borrador de correo */}
                 <div className="bg-layout-surface border border-gray-200 rounded-xl p-6 shadow-sm flex flex-col justify-between">
                     <div>
-                        <div className="flex items-center gap-2.5 mb-4">
-                            <Mail size={20} className="text-content-muted" />
-                            <h2 className="text-lg font-bold text-content-main">Borrador de correo</h2>
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2.5">
+                                <Mail size={20} className="text-content-muted" />
+                                <h2 className="text-lg font-bold text-content-main">Borrador de correo</h2>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleRegenerateAI}
+                                disabled={isRegenerating}
+                                className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand hover:text-brand-dark transition-colors cursor-pointer disabled:opacity-50"
+                                title="Generar nueva propuesta con IA basada en reseñas"
+                            >
+                                {isRegenerating ? (
+                                    <>
+                                        <Loader2 size={14} className="animate-spin" />
+                                        <span>Analizando...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles size={14} />
+                                        <span>Regenerar con IA</span>
+                                    </>
+                                )}
+                            </button>
                         </div>
 
                         <div className="space-y-4 mb-5">

@@ -5,7 +5,7 @@ import { useLeads } from '../hooks/useLeads';
 export const ProspectosEncontrados = () => {
     const navigate = useNavigate();
 
-    const { leads } = useLeads();
+    const { leads, exportToCsv } = useLeads();
     const leadsEnFrio = leads.filter((lead) => !lead.isSaved);
 
     return (
@@ -19,7 +19,10 @@ export const ProspectosEncontrados = () => {
                         {leadsEnFrio.length}
                     </span>
                 </div>
-                <button className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-brand hover:bg-brand-light rounded-lg transition-colors cursor-pointer">
+                <button
+                    onClick={exportToCsv}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-brand hover:bg-brand-light rounded-lg transition-colors cursor-pointer"
+                >
                     <Download size={16} />
                     Exportar CSV
                 </button>
